@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Главный экран</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+    -webkit-user-select: none; user-select: none;
+    color: #fff;
+}
+
+/* ─── BACKGROUND: #07001C + light effects ─── */
+.bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background: #07001C;
+    overflow: hidden;
+}
+
+/* Световой луч 1 — левый нижний */
+.bg-light-1 {
+    position: absolute;
+    width: 111.6%;
+    height: 68.8%;
+    left: 2.66%;
+    top: -7.5%;
+    transform-origin: center center;
+    transform: rotate(90deg);
+    filter: blur(14.6px);
+    background: radial-gradient(112.67% 112.67% at 41.02% 100%,
+        rgba(255,255,255,0.93) 11.3%,
+        rgba(208,201,250,0.77) 25.06%,
+        rgba(101,77,253,0.77) 36.98%,
+        rgba(36,0,255,0.77) 49.38%,
+        rgba(12,0,84,0.877) 71.87%,
+        #02000F 88.54%);
+    opacity: 0.6;
+}
+
+/* Световой луч 1 — мягкий overlay */
+.bg-light-1b {
+    position: absolute;
+    width: 114.6%;
+    height: 62.63%;
+    left: 5.57%;
+    top: -0.99%;
+    transform-origin: center center;
+    transform: rotate(90deg);
+    filter: blur(204px);
+    mix-blend-mode: lighten;
+    background: radial-gradient(112.67% 112.67% at 41.02% 100%,
+        rgba(255,255,255,0.651) 11.3%,
+        rgba(208,201,250,0.539) 25.06%,
+        rgba(101,77,253,0.539) 36.98%,
+        rgba(36,0,255,0.539) 49.38%,
+        rgba(12,0,84,0.614) 71.88%,
+        rgba(2,0,15,0.7) 88.54%);
+    opacity: 0.5;
+}
+
+/* Световой луч 2 — правый верхний */
+.bg-light-2 {
+    position: absolute;
+    width: 111.6%;
+    height: 68.8%;
+    left: 41.96%;
+    top: -101.76%;
+    transform-origin: center center;
+    transform: rotate(-132.01deg);
+    filter: blur(14.6px);
+    background: radial-gradient(112.67% 112.67% at 41.02% 100%,
+        rgba(255,255,255,0.93) 11.3%,
+        rgba(208,201,250,0.77) 25.06%,
+        rgba(101,77,253,0.77) 36.98%,
+        rgba(36,0,255,0.77) 49.38%,
+        rgba(12,0,84,0.877) 71.87%,
+        #02000F 88.54%);
+    opacity: 0.5;
+}
+
+/* Световой луч 3 — нижний центр */
+.bg-light-3 {
+    position: absolute;
+    width: 111.6%;
+    height: 68.8%;
+    left: 31.82%;
+    top: 65.65%;
+    filter: blur(14.6px);
+    background: radial-gradient(112.67% 112.67% at 41.02% 100%,
+        rgba(255,255,255,0.93) 11.3%,
+        rgba(208,201,250,0.77) 25.06%,
+        rgba(101,77,253,0.77) 36.98%,
+        rgba(36,0,255,0.77) 49.38%,
+        rgba(12,0,84,0.877) 71.87%,
+        #02000F 88.54%);
+    opacity: 0.4;
+}
+
+/* ─── LAYOUT ─── */
+.layout {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+}
+
+/* ─── SIDEBAR ─── */
+.sidebar {
+    width: 23.44vw;
+    min-width: 260px;
+    max-width: 340px;
+    background: #1B1B1B;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 2;
+}
+
+.sidebar-logo {
+    padding: 30px 30px 0 30px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.sidebar-logo-text { display: flex; flex-direction: column; }
+
+.sidebar-logo-title {
+    font-size: clamp(18px, 1.8vw, 26px);
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+}
+
+.sidebar-logo-sub {
+    font-size: clamp(10px, 0.98vw, 14px);
+    font-weight: 600;
+    color: rgba(255,255,255,0.85);
+    margin-top: 3px;
+    letter-spacing: -0.01em;
+}
+
+.sidebar-logo-btn {
+    width: 38px;
+    height: 38px;
+    background: #2C2C2C;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.sidebar-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.2);
+    margin: 20px 30px 0 30px;
+}
+
+.sidebar-nav {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 6px 20px 0 20px;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 16px;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-bottom: 2px;
+    position: relative;
+    border: 1px solid transparent;
+}
+
+.nav-item:hover { background: rgba(255,255,255,0.06); }
+
+.nav-item.active {
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.4);
+    filter: drop-shadow(0px 6px 4px rgba(0,0,0,0.95));
+    border-radius: 20px;
+}
+
+.nav-item svg {
+    width: 22px;
+    height: 22px;
+    opacity: 0.7;
+    flex-shrink: 0;
+}
+
+.nav-item.active svg { opacity: 1; }
+
+.nav-label {
+    font-size: clamp(14px, 1.5vw, 20px);
+    font-weight: 500;
+    color: #fff;
+    opacity: 0.7;
+    letter-spacing: -0.05em;
+}
+
+.nav-item.active .nav-label { opacity: 1; }
+
+.sidebar-bottom {
+    padding: 16px 20px 28px 20px;
+    margin-top: auto;
+}
+
+/* ─── MAIN AREA ─── */
+.main-wrap {
+    flex: 1;
+    display: flex;
+    align-items: stretch;
+    padding: 14px 18px 14px 10px;
+    min-width: 0;
+}
+
+.main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 28px 32px 24px 32px;
+    /* Rectangle 2683 from Figma */
+    background: linear-gradient(268.66deg, rgba(22,22,24,0.4) 1.07%, rgba(0,0,0,0.4) 17.36%, rgba(26,26,29,0.004) 98.79%);
+    box-shadow: inset 0px 2px 4px rgba(255,255,255,0.16);
+    backdrop-filter: blur(50px);
+    -webkit-backdrop-filter: blur(50px);
+    border-radius: 20px;
+    min-width: 0;
+}
+
+/* ─── TOPBAR ─── */
+.topbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 22px;
+    flex-shrink: 0;
+}
+
+.topbar-greeting { display: flex; flex-direction: column; }
+
+.topbar-greeting-sub {
+    font-size: clamp(12px, 1.1vw, 17px);
+    font-weight: 500;
+    color: #fff;
+    opacity: 0.85;
+    line-height: 1.3;
+}
+
+.topbar-greeting-name {
+    font-size: clamp(16px, 1.7vw, 26px);
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+}
+
+.topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.streak-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.streak-icon { font-size: 22px; line-height: 1; }
+
+.streak-count {
+    font-size: clamp(20px, 2vw, 30px);
+    font-weight: 400;
+    color: #fff;
+    line-height: 1;
+}
+
+.notif-wrap { position: relative; cursor: pointer; }
+
+.notif-dot {
+    position: absolute;
+    top: -5px;
+    right: -6px;
+    width: 16px;
+    height: 16px;
+    background: #8B79FF;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8B79FF, #4A3FCC);
+    overflow: hidden;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+}
+
+/* ─── DASHBOARD GRID ─── */
+.dashboard-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1.55fr 1.55fr;
+    grid-template-rows: 1fr auto;
+    gap: 14px;
+    min-height: 0;
+}
+
+/* ─── CARDS ─── */
+.card {
+    /* Rectangle 19447 from Figma */
+    background: rgba(255,255,255,0.14);
+    box-shadow: inset 0px 4px 14px rgba(255,255,255,0.5), inset 0px 2px 4px rgba(255,255,255,0.16);
+    backdrop-filter: blur(50px);
+    -webkit-backdrop-filter: blur(50px);
+    border-radius: 26px;
+    padding: 22px 22px 18px 22px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+/* AI Summary */
+.card-ai {
+    grid-column: 1;
+    grid-row: 1 / 3;
+}
+
+.card-ai-title {
+    font-size: clamp(15px, 1.4vw, 21px);
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.3;
+    margin-bottom: 20px;
+    letter-spacing: -0.01em;
+}
+
+.card-ai-text {
+    font-size: clamp(13px, 1.2vw, 19px);
+    font-weight: 400;
+    color: #fff;
+    opacity: 0.9;
+    line-height: 1.4;
+    letter-spacing: -0.05em;
+}
+
+/* Tasks card */
+.card-tasks {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.card-tasks-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.card-tasks-title {
+    font-size: clamp(15px, 1.4vw, 21px);
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.02em;
+}
+
+.card-tasks-link {
+    font-size: clamp(10px, 0.85vw, 13px);
+    font-weight: 700;
+    color: #8B79FF;
+    cursor: pointer;
+}
+
+.task-item {
+    display: flex;
+    align-items: stretch;
+    background: #3C3C3C;
+    border: 1px solid rgba(255,255,255,0.5);
+    box-shadow: 0px 10px 8px rgba(0,0,0,0.5);
+    border-radius: 14px;
+    margin-bottom: 8px;
+    overflow: hidden;
+    min-height: 68px;
+}
+
+.task-item:last-child { margin-bottom: 0; }
+
+.task-stripe {
+    width: 9px;
+    flex-shrink: 0;
+    filter: blur(1.5px);
+}
+
+.task-stripe.red { background: #DB0505; }
+.task-stripe.yellow { background: #E2CC04; }
+.task-stripe.green { background: #04C610; }
+
+.task-body {
+    flex: 1;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.task-priority {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 9px;
+    border-radius: 20px;
+    font-size: clamp(9px, 0.75vw, 12px);
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+    width: fit-content;
+}
+
+.task-priority.red { background: #DB0505; }
+.task-priority.yellow { background: #C9B800; }
+.task-priority.green { background: #04C610; }
+
+.task-name {
+    font-size: clamp(12px, 1.1vw, 17px);
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+
+.task-time {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: clamp(10px, 0.85vw, 13px);
+    color: rgba(255,255,255,0.65);
+    margin-top: 3px;
+}
+
+.task-time svg { width: 13px; height: 13px; color: rgba(255,255,255,0.65); }
+
+/* Progress card */
+.card-progress {
+    grid-column: 3;
+    grid-row: 1;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.progress-ring-wrap {
+    position: relative;
+    width: clamp(120px, 14vw, 190px);
+    height: clamp(120px, 14vw, 190px);
+    flex-shrink: 0;
+}
+
+.progress-ring-wrap svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.progress-ring-bg {
+    fill: none;
+    stroke: rgba(255,255,255,0.12);
+    stroke-width: 12;
+}
+
+.progress-ring-fill {
+    fill: none;
+    stroke-width: 12;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.6s ease;
+}
+
+.progress-center-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(24px, 3.2vw, 52px);
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.04em;
+}
+
+.progress-dot {
+    position: absolute;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(255,255,255,0.8);
+    pointer-events: none;
+}
+
+.progress-label {
+    font-size: clamp(12px, 1.1vw, 17px);
+    font-weight: 700;
+    color: #fff;
+    text-align: center;
+    letter-spacing: -0.02em;
+}
+
+.progress-sublabel {
+    font-size: clamp(10px, 0.9vw, 14px);
+    font-weight: 400;
+    color: rgba(255,255,255,0.65);
+    text-align: center;
+}
+
+/* Performance card */
+.card-perf {
+    grid-column: 2 / 4;
+    grid-row: 2;
+    flex-direction: row;
+    gap: 20px;
+    align-items: center;
+    padding: 18px 22px;
+}
+
+.perf-chart-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 100%;
+}
+
+.perf-chart-title {
+    font-size: clamp(13px, 1.3vw, 20px);
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 8px;
+    letter-spacing: -0.05em;
+}
+
+.perf-chart-inner {
+    flex: 1;
+    display: flex;
+    gap: 6px;
+    min-height: 0;
+}
+
+.perf-y-axis {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: 20px;
+}
+
+.perf-y-label {
+    font-size: clamp(9px, 0.8vw, 13px);
+    color: rgba(255,255,255,0.5);
+    font-weight: 400;
+    letter-spacing: -0.05em;
+    line-height: 1;
+}
+
+.perf-chart-canvas-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+
+.perf-canvas {
+    flex: 1;
+    width: 100%;
+    display: block;
+    min-height: 0;
+}
+
+.perf-x-axis {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0 0 0;
+    height: 20px;
+}
+
+.perf-x-label {
+    font-size: clamp(9px, 0.8vw, 13px);
+    color: rgba(255,255,255,0.5);
+    font-weight: 400;
+    letter-spacing: -0.05em;
+    text-align: center;
+}
+
+.perf-stats {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-width: 120px;
+    gap: 2px;
+}
+
+.perf-percent {
+    font-size: clamp(26px, 3.2vw, 52px);
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.04em;
+    line-height: 1;
+}
+
+.perf-stat-label {
+    font-size: clamp(10px, 0.95vw, 14px);
+    font-weight: 600;
+    color: #fff;
+    text-align: center;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+}
+
+.perf-stat-sub {
+    font-size: clamp(9px, 0.8vw, 12px);
+    font-weight: 400;
+    color: rgba(255,255,255,0.6);
+    text-align: center;
+    margin-top: 2px;
+}
+</style>
+</head>
+<body>
+
+<!-- BACKGROUND -->
+<div class="bg">
+    <!-- SVG background from fon.txt -->
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g filter="url(#filter0_f_183_1597)">
+<g filter="url(#filter1_f_183_1597)">
+<path d="M52.817 -77.9316C397.551 -139.232 751.665 735.688 737.594 958.598C723.523 1181.51 402.241 1164.79 289.675 1398.84C210.27 1563.95 70.3306 1827.84 52.8169 1998.73L52.8169 2062C50.3213 2042.89 50.4684 2021.65 52.8169 1998.73L52.817 -77.9316Z" fill="url(#paint0_radial_183_1597)"/>
+</g>
+<g filter="url(#filter2_f_183_1597)" style="mix-blend-mode:lighten">
+<path d="M108.817 -7.78877C453.551 -64.8404 807.665 749.442 793.594 956.902C779.523 1164.36 458.241 1148.8 345.675 1366.64C266.27 1520.3 126.331 1765.9 108.817 1924.95L108.817 1983.83C106.321 1966.05 106.468 1946.27 108.817 1924.95L108.817 -7.78877Z" fill="url(#paint1_radial_183_1597)" fill-opacity="0.7"/>
+</g>
+</g>
+<g filter="url(#filter3_f_183_1597)">
+<g filter="url(#filter4_f_183_1597)">
+<path d="M2746.88 492.257C2531.76 768.519 1683.1 355.416 1544.37 180.369C1405.64 5.32314 1655.55 -197.274 1582.55 -446.52C1531.05 -622.34 1458.42 -912.075 1357.07 -1050.77L1314.72 -1097.79C1329.37 -1085.26 1343.48 -1069.37 1357.07 -1050.77L2746.88 492.257Z" fill="url(#paint2_radial_183_1597)"/>
+</g>
+<g filter="url(#filter5_f_183_1597)" style="mix-blend-mode:lighten">
+<path d="M2658.33 477.618C2440.36 750.723 1632.28 382.676 1503.89 219.109C1375.5 55.5421 1624.64 -147.916 1562.5 -385.109C1518.66 -552.426 1458.27 -828.571 1364.84 -958.47L1325.43 -1002.22C1339.19 -990.679 1352.31 -975.89 1364.84 -958.47L2658.33 477.618Z" fill="url(#paint3_radial_183_1597)" fill-opacity="0.7"/>
+</g>
+</g>
+<g filter="url(#filter6_f_183_1597)">
+<g filter="url(#filter7_f_183_1597)">
+<path d="M614.068 1394.18C552.768 1049.45 1427.69 695.335 1650.6 709.406C1873.51 723.477 1856.79 1044.76 2090.84 1157.33C2255.95 1236.73 2519.84 1376.67 2690.73 1394.18H2754C2734.89 1396.68 2713.65 1396.53 2690.73 1394.18L614.068 1394.18Z" fill="url(#paint4_radial_183_1597)"/>
+</g>
+<g filter="url(#filter8_f_183_1597)" style="mix-blend-mode:lighten">
+<path d="M684.211 1338.18C627.16 993.449 1441.44 639.335 1648.9 653.406C1856.36 667.477 1840.8 988.759 2058.64 1101.33C2212.3 1180.73 2457.9 1320.67 2616.95 1338.18H2675.83C2658.05 1340.68 2638.27 1340.53 2616.95 1338.18L684.211 1338.18Z" fill="url(#paint5_radial_183_1597)" fill-opacity="0.7"/>
+</g>
+</g>
+<foreignObject x="206" y="-100" width="1872" height="1357"><div xmlns="http://www.w3.org/1999/xhtml" style="backdrop-filter:blur(50px);clip-path:url(#bgblur_0_183_1597_clip_path);height:100%;width:100%"></div></foreignObject><g filter="url(#filter9_i_183_1597)" data-figma-bg-blur-radius="100">
+<path d="M306 20C306 8.95428 314.954 0 326 0H1958C1969.05 0 1978 8.95431 1978 20V1137C1978 1148.05 1969.05 1157 1958 1157H326C314.954 1157 306 1148.05 306 1137V20Z" fill="url(#paint6_linear_183_1597)" fill-opacity="0.4"/>
+</g>
+<defs>
+<filter id="filter0_f_183_1597" x="-53" y="-185" width="951" height="2351" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="52" result="effect1_foregroundBlur_183_1597"/>
+</filter>
+<filter id="filter1_f_183_1597" x="21.7792" y="-110.221" width="745.442" height="2201.44" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="14.6104" result="effect1_foregroundBlur_183_1597"/>
+</filter>
+<filter id="filter2_f_183_1597" x="-302.091" y="-419.735" width="1505.18" height="2812.66" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="204.545" result="effect1_foregroundBlur_183_1597"/>
+</filter>
+<filter id="filter3_f_183_1597" x="1210.72" y="-1201.79" width="1640.16" height="1890.65" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="52" result="effect1_foregroundBlur_183_1597"/>
+</filter>
+<filter id="filter4_f_183_1597" x="1285.5" y="-1127.01" width="1490.6" height="1741.09" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="14.6104" result="effect1_foregroundBlur_183_1597"/>
+</filter>
+<filter id="filter5_f_183_1597" x="916.339" y="-1411.31" width="2151.08" height="2395.9" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="204.545" result="effect1_foregroundBlur_183_1597"/>
+</filter>
+<filter id="filter6_f_183_1597" x="507" y="549" width="2351" height="951" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="52" result="effect1_foregroundBlur_183_1597"/>
+</filter>
+<filter id="filter7_f_183_1597" x="581.779" y="679.779" width="2201.44" height="745.442" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="14.6104" result="effect1_foregroundBlur_183_1597"/>
+</filter>
+<filter id="filter8_f_183_1597" x="272.265" y="243.909" width="2812.66" height="1505.18" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="204.545" result="effect1_foregroundBlur_183_1597"/>
+</filter>
+<filter id="filter9_i_183_1597" x="206" y="-100" width="1872" height="1357" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="2"/>
+<feGaussianBlur stdDeviation="2"/>
+<feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1"/>
+<feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.16 0"/>
+<feBlend mode="normal" in2="shape" result="effect1_innerShadow_183_1597"/>
+</filter>
+<clipPath id="bgblur_0_183_1597_clip_path" transform="translate(-206 100)"><path d="M306 20C306 8.95428 314.954 0 326 0H1958C1969.05 0 1978 8.95431 1978 20V1137C1978 1148.05 1969.05 1157 1958 1157H326C314.954 1157 306 1148.05 306 1137V20Z"/>
+</clipPath><radialGradient id="paint0_radial_183_1597" cx="0" cy="0" r="1" gradientTransform="matrix(774.051 341.131 -307.951 2414.54 51 798.067)" gradientUnits="userSpaceOnUse">
+<stop offset="0.112961" stop-color="white" stop-opacity="0.93"/>
+<stop offset="0.250637" stop-color="#D0C9FA" stop-opacity="0.770383"/>
+<stop offset="0.369792" stop-color="#654DFD" stop-opacity="0.770383"/>
+<stop offset="0.493846" stop-color="#2400FF" stop-opacity="0.770383"/>
+<stop offset="0.71875" stop-color="#0C0054" stop-opacity="0.877197"/>
+<stop offset="0.885417" stop-color="#02000F"/>
+</radialGradient>
+<radialGradient id="paint1_radial_183_1597" cx="0" cy="0" r="1" gradientTransform="matrix(774.051 317.488 -307.951 2247.2 107 807.497)" gradientUnits="userSpaceOnUse">
+<stop offset="0.112961" stop-color="white" stop-opacity="0.93"/>
+<stop offset="0.250637" stop-color="#D0C9FA" stop-opacity="0.770383"/>
+<stop offset="0.369792" stop-color="#654DFD" stop-opacity="0.770383"/>
+<stop offset="0.493846" stop-color="#2400FF" stop-opacity="0.770383"/>
+<stop offset="0.71875" stop-color="#0C0054" stop-opacity="0.877197"/>
+<stop offset="0.885417" stop-color="#02000F"/>
+</radialGradient>
+<radialGradient id="paint2_radial_183_1597" cx="0" cy="0" r="1" gradientTransform="matrix(-803.449 264.565 -1387.12 -2000.19 2161.97 -159.856)" gradientUnits="userSpaceOnUse">
+<stop offset="0.112961" stop-color="white" stop-opacity="0.93"/>
+<stop offset="0.250637" stop-color="#D0C9FA" stop-opacity="0.770383"/>
+<stop offset="0.369792" stop-color="#654DFD" stop-opacity="0.770383"/>
+<stop offset="0.493846" stop-color="#2400FF" stop-opacity="0.770383"/>
+<stop offset="0.71875" stop-color="#0C0054" stop-opacity="0.877197"/>
+<stop offset="0.885417" stop-color="#02000F"/>
+</radialGradient>
+<radialGradient id="paint3_radial_183_1597" cx="0" cy="0" r="1" gradientTransform="matrix(-787.626 282.132 -1275.13 -1875.84 2114.05 -129.384)" gradientUnits="userSpaceOnUse">
+<stop offset="0.112961" stop-color="white" stop-opacity="0.93"/>
+<stop offset="0.250637" stop-color="#D0C9FA" stop-opacity="0.770383"/>
+<stop offset="0.369792" stop-color="#654DFD" stop-opacity="0.770383"/>
+<stop offset="0.493846" stop-color="#2400FF" stop-opacity="0.770383"/>
+<stop offset="0.71875" stop-color="#0C0054" stop-opacity="0.877197"/>
+<stop offset="0.885417" stop-color="#02000F"/>
+</radialGradient>
+<radialGradient id="paint4_radial_183_1597" cx="0" cy="0" r="1" gradientTransform="matrix(341.131 -774.051 2414.54 307.951 1490.07 1396)" gradientUnits="userSpaceOnUse">
+<stop offset="0.112961" stop-color="white" stop-opacity="0.93"/>
+<stop offset="0.250637" stop-color="#D0C9FA" stop-opacity="0.770383"/>
+<stop offset="0.369792" stop-color="#654DFD" stop-opacity="0.770383"/>
+<stop offset="0.493846" stop-color="#2400FF" stop-opacity="0.770383"/>
+<stop offset="0.71875" stop-color="#0C0054" stop-opacity="0.877197"/>
+<stop offset="0.885417" stop-color="#02000F"/>
+</radialGradient>
+<radialGradient id="paint5_radial_183_1597" cx="0" cy="0" r="1" gradientTransform="matrix(317.488 -774.051 2247.2 307.951 1499.5 1340)" gradientUnits="userSpaceOnUse">
+<stop offset="0.112961" stop-color="white" stop-opacity="0.93"/>
+<stop offset="0.250637" stop-color="#D0C9FA" stop-opacity="0.770383"/>
+<stop offset="0.369792" stop-color="#654DFD" stop-opacity="0.770383"/>
+<stop offset="0.493846" stop-color="#2400FF" stop-opacity="0.770383"/>
+<stop offset="0.71875" stop-color="#0C0054" stop-opacity="0.877197"/>
+<stop offset="0.885417" stop-color="#02000F"/>
+</radialGradient>
+<linearGradient id="paint6_linear_183_1597" x1="1978" y1="541.177" x2="307.824" y2="597.63" gradientUnits="userSpaceOnUse">
+<stop stop-color="#161618"/>
+<stop offset="0.166667"/>
+<stop offset="1" stop-color="#1A1A1D" stop-opacity="0.01"/>
+</linearGradient>
+</defs>
+</svg>
+
+
+
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="sidebar-logo-text">
+                <span class="sidebar-logo-title">Наше название</span>
+                <span class="sidebar-logo-sub">Личный помощник с задачами</span>
+            </div>
+            <div class="sidebar-logo-btn">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <path d="M11 13L7 9L11 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        </div>
+
+        <div class="sidebar-divider"></div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-item active">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M3 9.5L12 3L21 9.5V20C21 20.55 20.55 21 20 21H15V15H9V21H4C3.45 21 3 20.55 3 20V9.5Z" stroke="white" stroke-width="1.8" stroke-linejoin="round"/>
+                </svg>
+                <span class="nav-label">Главный экран</span>
+            </div>
+            <div class="nav-item">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="4" width="18" height="17" rx="2" stroke="white" stroke-width="1.8"/>
+                    <path d="M9 9H15M9 13H15M9 17H12" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+                <span class="nav-label">Мои задачи</span>
+            </div>
+            <div class="nav-item">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="5" width="18" height="16" rx="2" stroke="white" stroke-width="1.8"/>
+                    <path d="M16 3V7M8 3V7M3 10H21" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+                <span class="nav-label">Календарь</span>
+            </div>
+            <div class="nav-item">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M3 20H21M5 20V12M10 20V7M15 20V12M20 20V4" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+                <span class="nav-label">Успеваемость</span>
+            </div>
+            <div class="nav-item">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="8" r="4" stroke="white" stroke-width="1.8"/>
+                    <path d="M4 20C4 17 7.58 15 12 15C16.42 15 20 17 20 20" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+                <span class="nav-label">ИИ-ассистент</span>
+            </div>
+        </nav>
+
+        <div class="sidebar-bottom">
+            <div class="nav-item nav-item-settings">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="3" stroke="white" stroke-width="1.8"/>
+                    <path d="M12 1V3M12 21V23M4.22 4.22L5.64 5.64M18.36 18.36L19.78 19.78M1 12H3M21 12H23M4.22 19.78L5.64 18.36M18.36 5.64L19.78 4.22" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+                <span class="nav-label">Настройки</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <div class="main-wrap">
+        <main class="main">
+
+            <!-- TOPBAR -->
+            <div class="topbar">
+                <div class="topbar-greeting">
+                    <span class="topbar-greeting-sub">Добро пожаловать,</span>
+                    <span class="topbar-greeting-name">Савелий Лоцманов!</span>
+                </div>
+                <div class="topbar-right">
+                    <div class="streak-badge">
+                        <span class="streak-icon">🔥</span>
+                        <span class="streak-count">3</span>
+                    </div>
+                    <div class="notif-wrap">
+                        <svg width="22" height="24" viewBox="0 0 24 26" fill="none">
+                            <path d="M12 2C8.13 2 5 5.13 5 9v6l-2 2v1h18v-1l-2-2V9c0-3.87-3.13-7-7-7z" fill="rgba(255,255,255,0.85)"/>
+                            <path d="M10 20c0 1.1.9 2 2 2s2-.9 2-2" fill="rgba(255,255,255,0.85)"/>
+                        </svg>
+                        <div class="notif-dot">3</div>
+                    </div>
+                    <div class="avatar">СЛ</div>
+                </div>
+            </div>
+
+            <!-- DASHBOARD GRID -->
+            <div class="dashboard-grid">
+
+                <!-- AI SUMMARY -->
+                <div class="card card-ai">
+                    <div class="card-ai-title">Сводка от ИИ<br>по задачам:</div>
+                    <div class="card-ai-text">Тут краткая сводка от ИИ задач на день.</div>
+                </div>
+
+                <!-- TASKS -->
+                <div class="card card-tasks">
+                    <div class="card-tasks-header">
+                        <span class="card-tasks-title">Мои задачи:</span>
+                        <a class="card-tasks-link">Посмотреть все задачи</a>
+                    </div>
+                    <div class="task-item">
+                        <div class="task-stripe red"></div>
+                        <div class="task-body">
+                            <span class="task-priority red">Критично</span>
+                            <div class="task-name">Сдать проект по биологии</div>
+                            <div class="task-time">
+                                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                                Завтра, 12:00
+                            </div>
+                        </div>
+                    </div>
+                    <div class="task-item">
+                        <div class="task-stripe yellow"></div>
+                        <div class="task-body">
+                            <span class="task-priority yellow">Важно</span>
+                            <div class="task-name">Подготовка презентации</div>
+                            <div class="task-time">
+                                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                                Завтра, 15:00
+                            </div>
+                        </div>
+                    </div>
+                    <div class="task-item">
+                        <div class="task-stripe green"></div>
+                        <div class="task-body">
+                            <span class="task-priority green">Обычное</span>
+                            <div class="task-name">Исправить плохую оценку</div>
+                            <div class="task-time">
+                                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                                Пт, 10:00
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PROGRESS RING -->
+                <div class="card card-progress">
+                    <div class="progress-ring-wrap" id="progressWrap">
+                        <svg viewBox="0 0 200 200">
+                            <circle class="progress-ring-bg" cx="100" cy="100" r="82"/>
+                            <circle class="progress-ring-fill" id="progressRing" cx="100" cy="100" r="82"/>
+                        </svg>
+                        <div class="progress-center-text" id="progressText">100%</div>
+                        <div class="progress-dot" id="progressDot"></div>
+                    </div>
+                    <div class="progress-label">Прогресс сегодня: 100%</div>
+                    <div class="progress-sublabel">Выполнено 5/5</div>
+                </div>
+
+                <!-- PERFORMANCE CHART -->
+                <div class="card card-perf">
+                    <div class="perf-chart-area">
+                        <div class="perf-chart-title">Динамика успеваемости</div>
+                        <div class="perf-chart-inner">
+                            <div class="perf-y-axis">
+                                <span class="perf-y-label">100%</span>
+                                <span class="perf-y-label">75%</span>
+                                <span class="perf-y-label">50%</span>
+                                <span class="perf-y-label">25%</span>
+                                <span class="perf-y-label">0%</span>
+                            </div>
+                            <div class="perf-chart-canvas-wrap">
+                                <canvas class="perf-canvas" id="perfCanvas"></canvas>
+                                <div class="perf-x-axis">
+                                    <span class="perf-x-label">Пн</span>
+                                    <span class="perf-x-label">Вт</span>
+                                    <span class="perf-x-label">Ср</span>
+                                    <span class="perf-x-label">Чт</span>
+                                    <span class="perf-x-label">Пт</span>
+                                    <span class="perf-x-label">Сб</span>
+                                    <span class="perf-x-label">Вс</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="perf-stats">
+                        <div class="perf-percent">+10%</div>
+                        <div class="perf-stat-label">Продуктивность<br>за неделю</div>
+                        <div class="perf-stat-sub">Показатели за 7 дней</div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+</div>
+
+<script>
+// ─── PROGRESS RING ───
+(function() {
+    const pct = 100;
+    const ring = document.getElementById('progressRing');
+    const dot = document.getElementById('progressDot');
+    const wrap = document.getElementById('progressWrap');
+    const r = 82;
+    const circ = 2 * Math.PI * r;
+    ring.style.strokeDasharray = circ;
+    const offset = circ - (pct / 100) * circ;
+    ring.style.strokeDashoffset = offset;
+
+    // Color based on pct — exactly as in image 2
+    function getColor(p) {
+        if (p <= 25) return '#DB0505';       // red
+        if (p <= 50) return '#E2A804';       // orange
+        if (p <= 75) return '#8BC34A';       // light green
+        return '#1a7a00';                    // dark green
+    }
+
+    const color = getColor(pct);
+    ring.style.stroke = color;
+    ring.style.filter = `drop-shadow(0 0 8px ${color})`;
+
+    function positionDot() {
+        const size = wrap.offsetWidth;
+        if (!size) { requestAnimationFrame(positionDot); return; }
+        const cx = size / 2, cy = size / 2;
+        const radius = (82 / 200) * size;
+        const angleDeg = -90 + (pct / 100) * 360;
+        const angleRad = (angleDeg * Math.PI) / 180;
+        const x = cx + radius * Math.cos(angleRad);
+        const y = cy + radius * Math.sin(angleRad);
+        const dotSize = Math.max(10, size * 0.075);
+        dot.style.width = dotSize + 'px';
+        dot.style.height = dotSize + 'px';
+        dot.style.left = (x - dotSize/2) + 'px';
+        dot.style.top = (y - dotSize/2) + 'px';
+        dot.style.background = '#fff';
+        dot.style.boxShadow = `0 0 10px rgba(255,255,255,0.9)`;
+    }
+
+    positionDot();
+    window.addEventListener('resize', positionDot);
+    setTimeout(positionDot, 200);
+})();
+
+// ─── PERFORMANCE CHART ───
+(function() {
+    const canvas = document.getElementById('perfCanvas');
+    const data = [20, 30, 45, 50, 72, 85, 100];
+    const activeIdx = 4;
+
+    function draw() {
+        const w = canvas.offsetWidth, h = canvas.offsetHeight;
+        if (w === 0 || h === 0) { requestAnimationFrame(draw); return; }
+        canvas.width = w * window.devicePixelRatio;
+        canvas.height = h * window.devicePixelRatio;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+        const padLeft = 0, padRight = 0, padTop = 4, padBottom = 4;
+        const chartW = w - padLeft - padRight;
+        const chartH = h - padTop - padBottom;
+
+        // Grid lines
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+            const y = padTop + (i / 4) * chartH;
+            ctx.beginPath();
+            ctx.moveTo(padLeft, y);
+            ctx.lineTo(padLeft + chartW, y);
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        const pts = data.map((v, i) => ({
+            x: padLeft + (i / (data.length - 1)) * chartW,
+            y: padTop + (1 - v / 100) * chartH
+        }));
+
+        // Line
+        ctx.save();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+        ctx.stroke();
+        ctx.restore();
+
+        // Active dot
+        const ap = pts[activeIdx];
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(ap.x, ap.y, 9, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.save();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(ap.x, ap.y, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    draw();
+    window.addEventListener('resize', draw);
+    setTimeout(draw, 100);
+    setTimeout(draw, 400);
+})();
+</script>
+</body>
+</html>

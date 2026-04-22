@@ -72,6 +72,11 @@ async def server_register():
 async def server_verify():
     login_path = os.path.join(frontend_path, "verify.html")
     return FileResponse(login_path)
+    
+@app.get("/dashboard")
+async def server_dashboard():
+    login_path = os.path.join(frontend_path, "dashboard.html")
+    return FileResponse(login_path)
 
 @app.get("/health")
 def health():
