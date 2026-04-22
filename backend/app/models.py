@@ -1,0 +1,237 @@
+from sqlalchemy import (
+    Column, Integer, String, Text, Boolean, DateTime, ForeignKey,
+    Enum as SAEnum, Float
+)
+from sqlalchemy.orm import relationship, declarative_base
+from sqlalchemy.sql import func
+import enum
+
+Base = declarative_base()
+
+
+class UserRole(str, enum.Enum):
+    student = "student"
+    teacher = "teacher"
+    parent = "parent"
+    admin = "admin"
+
+
+class TaskStatus(str, enum.Enum):
+    pending = "pending"
+    in_progress = "in_progress"
+    done = "done"
+    overdue = "overdue"
+
+
+class TaskPriority(str, enum.Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+    critical = "critical"
+
+
+class NotificationChannel(str, enum.Enum):
+    email = "email"
+    browser = "browser"
+    telegram = "telegram"
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    first_name = Column(String(100), nullable=False)
+    last_name = Column(String(100), nullable=False)
+    role = Column(SAEnum(UserRole), nullable=False)
+    avatar_url = Column(String(500), nullable=True)
+    grade = Column(String(20), nullable=True)
+    telegram_id = Column(String(100), nullable=True, unique=True)
+    is_active = Column(Boolean, default=False)
+    is_verified = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    notify_email = Column(Boolean, default=True)
+    notify_browser = Column(Boolean, default=True)
+    notify_telegram = Column(Boolean, default=False)
+    notify_digest_time = Column(String(5), default="08:00")
+
+    classes_taught = relationship("Class", back_populates="teacher")
+    class_memberships = relationship("ClassMembership", back_populates="student")
+    tasks = relationship("Task", back_populates="student", foreign_keys="Task.student_id")
+    grades = relationship("Grade", back_populates="student", foreign_keys="[Grade.student_id]")
+    ai_messages = relationship("AIMessage", back_populates="user")
+    notifications = relationship("Notification", back_populates="user")
+    schedule_entries = relationship("Schedule", back_populates="student")
+
+
+class InviteCode(Base):
+    __tablename__ = "invite_codes"
+
+    id = Column(Integer, primary_key=True)
+    code = Column(String(16), unique=True, nullable=False, index=True)
+    is_used = Column(Boolean, default=False)
+    used_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    used_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class EmailVerification(Base):
+    __tablename__ = "email_verifications"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    code = Column(String(6), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    is_used = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Class(Base):
+    __tablename__ = "classes"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    invite_code = Column(String(12), unique=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    teacher = relationship("User", back_populates="classes_taught")
+    memberships = relationship("ClassMembership", back_populates="class_")
+    assignments = relationship("Assignment", back_populates="class_")
+
+
+class ClassMembership(Base):
+    __tablename__ = "class_memberships"
+
+    id = Column(Integer, primary_key=True)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)
+    joined_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    student = relationship("User", back_populates="class_memberships")
+    class_ = relationship("Class", back_populates="memberships")
+
+
+class ParentStudent(Base):
+    __tablename__ = "parent_students"
+
+    id = Column(Integer, primary_key=True)
+    parent_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    linked_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Assignment(Base):
+    __tablename__ = "assignments"
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String(255), nullable=False)
+    subject = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    deadline = Column(DateTime(timezone=True), nullable=False)
+    class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    priority = Column(SAEnum(TaskPriority), default=TaskPriority.medium)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    class_ = relationship("Class", back_populates="assignments")
+    tasks = relationship("Task", back_populates="assignment")
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id = Column(Integer, primary_key=True)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    assignment_id = Column(Integer, ForeignKey("assignments.id"), nullable=True)
+    parent_task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)
+
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    subject = Column(String(100), nullable=True)
+    deadline = Column(DateTime(timezone=True), nullable=True)
+    status = Column(SAEnum(TaskStatus), default=TaskStatus.pending)
+    priority = Column(SAEnum(TaskPriority), default=TaskPriority.medium)
+    is_personal = Column(Boolean, default=False)
+    ai_suggested_time = Column(String(5), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+    student = relationship("User", back_populates="tasks", foreign_keys=[student_id])
+    assignment = relationship("Assignment", back_populates="tasks")
+    subtasks = relationship("Task", back_populates="parent_task")
+    parent_task = relationship("Task", back_populates="subtasks", remote_side="[Task.id]")
+
+
+class Grade(Base):
+    __tablename__ = "grades"
+
+    id = Column(Integer, primary_key=True)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    assignment_id = Column(Integer, ForeignKey("assignments.id"), nullable=True)
+    subject = Column(String(100), nullable=False)
+    value = Column(Float, nullable=False)
+    comment = Column(Text, nullable=True)
+    graded_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    graded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    student = relationship("User", back_populates="grades", foreign_keys=[student_id])
+
+
+class Schedule(Base):
+    __tablename__ = "schedule"
+
+    id = Column(Integer, primary_key=True)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    subject = Column(String(100), nullable=False)
+    teacher_name = Column(String(255), nullable=True)
+    weekday = Column(Integer, nullable=False)
+    start_time = Column(String(5), nullable=False)
+    end_time = Column(String(5), nullable=False)
+    room = Column(String(50), nullable=True)
+
+    student = relationship("User", back_populates="schedule_entries")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String(255), nullable=False)
+    body = Column(Text, nullable=False)
+    channel = Column(SAEnum(NotificationChannel), nullable=False)
+    is_read = Column(Boolean, default=False)
+    is_sent = Column(Boolean, default=False)
+    scheduled_at = Column(DateTime(timezone=True), nullable=True)
+    sent_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="notifications")
+
+
+class ParentLinkToken(Base):
+    __tablename__ = "parent_link_tokens"
+
+    id = Column(Integer, primary_key=True)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    code = Column(String(6), nullable=False, index=True)
+    is_used = Column(Boolean, default=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AIMessage(Base):
+    __tablename__ = "ai_messages"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role = Column(String(20), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="ai_messages")
