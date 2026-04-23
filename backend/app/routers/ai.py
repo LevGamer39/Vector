@@ -83,7 +83,7 @@ def _build_context(student_id: int, db: Session) -> str:
         ctx_parts.append("\nАктивные задачи:")
         for t in tasks:
             deadline_str = t.deadline.strftime("%d.%m %H:%M") if t.deadline else "без дедлайна"
-            overdue = " [ПРОСРОЧЕНО]" if t.deadline and t.deadline < now else ""
+            overdue = " [ПРОСРОЧЕНО]" if t.deadline and t.deadline.replace(tzinfo=timezone.utc) < now else ""
             ctx_parts.append(
                 f"- [{t.priority.value}] {t.subject or ''}: {t.title} | дедлайн: {deadline_str}{overdue}"
             )

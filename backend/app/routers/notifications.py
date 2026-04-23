@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from app.dependencies import get_current_user, require_role
 from app.database import get_db, SessionLocal
 from app.models import Notification, NotificationChannel, Task, TaskStatus, User, UserRole
 from app.routers.users import get_current_user, require_role
@@ -33,7 +34,7 @@ class NotificationResponse(BaseModel):
 
 
 def send_email(to: str, subject: str, body: str):
-    if not settings.smtp_user:
+    if not settings.smtp_host:
         print(f"[DEV] Email to {to}: {subject}")
         return
     try:
@@ -44,8 +45,9 @@ def send_email(to: str, subject: str, body: str):
         msg.attach(MIMEText(body, "html", "utf-8"))
 
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
-            server.starttls()
-            server.login(settings.smtp_user, settings.smtp_password)
+            server.starttls() # Уберите, если локальный порт 2525 не поддерживает TLS
+            if settings.smtp_user and settings.smtp_password:
+                server.login(settings.smtp_user, settings.smtp_password)
             server.sendmail(settings.email_from, to, msg.as_string())
     except Exception as e:
         print(f"[SMTP error] {e}")

@@ -10,7 +10,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.database import get_db
-from app.models import User, UserRole, InviteCode, EmailVerification, ParentStudent, ParentLinkToken
+from app.models import User, UserRole, InviteCode, EmailVerification, ParentStudent, ParentLinkToken, PasswordResetToken
 from app.config import settings
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -18,6 +18,10 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
 
+
+# ---------------------------------------------------------------------------
+# Schemas
+# ---------------------------------------------------------------------------
 
 class RegisterRequest(BaseModel):
     email: EmailStr
@@ -71,6 +75,9 @@ class PasswordChangeRequest(BaseModel):
     new_password: str
 
 
+# ---------------------------------------------------------------------------
+# Auth helpers
+# ---------------------------------------------------------------------------
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -106,7 +113,12 @@ def require_role(*roles: UserRole):
     return dependency
 
 
+# ---------------------------------------------------------------------------
+# Email verification helper (без SMTP пока — заглушка, добавим в notifications)
+# ---------------------------------------------------------------------------
+
 def _send_verification_email(email: str, code: str):
+    # TODO: заменить на реальный SMTP в notifications.py
     print(f"[DEV] Verification code for {email}: {code}")
 
 
@@ -118,6 +130,9 @@ def _create_verification(user_id: int, db: Session) -> str:
     return code
 
 
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
 
 @router.post("/register", status_code=201)
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
@@ -147,7 +162,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         is_verified=False,
     )
     db.add(user)
-    db.flush() 
+    db.flush()  # получаем user.id до commit
 
     if body.role == UserRole.teacher:
         invite.is_used = True
@@ -245,6 +260,7 @@ def generate_parent_link_token(
     current_user: User = Depends(require_role(UserRole.student)),
     db: Session = Depends(get_db),
 ):
+    """Ученик генерирует 6-значный код. Родитель вводит его у себя в кабинете."""
     existing = db.query(ParentLinkToken).filter(
         ParentLinkToken.student_id == current_user.id,
         ParentLinkToken.is_used == False,
@@ -267,6 +283,7 @@ def link_parent(
     current_user: User = Depends(require_role(UserRole.parent)),
     db: Session = Depends(get_db),
 ):
+    """Родитель вводит код из кабинета ученика и привязывается к нему."""
     token = db.query(ParentLinkToken).filter(
         ParentLinkToken.code == code,
         ParentLinkToken.is_used == False,
@@ -302,3 +319,61 @@ def get_children(
         if s:
             result.append({"id": s.id, "first_name": s.first_name, "last_name": s.last_name, "email": s.email, "grade": s.grade})
     return result
+
+
+# ---------------------------------------------------------------------------
+# Password reset
+# ---------------------------------------------------------------------------
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/password-reset/request")
+def request_password_reset(body: PasswordResetRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == body.email).first()
+    if not user:
+        return {"message": "Если такой email зарегистрирован, письмо отправлено."}
+
+    db.query(PasswordResetToken).filter(
+        PasswordResetToken.user_id == user.id,
+        PasswordResetToken.is_used == False,
+    ).update({"is_used": True})
+
+    token = secrets.token_urlsafe(32)
+    expires = datetime.now(timezone.utc) + timedelta(hours=1)
+    db.add(PasswordResetToken(user_id=user.id, token=token, expires_at=expires))
+    db.commit()
+
+    reset_link = f"{settings.app_url}/reset-password-new?token={token}"
+    # TODO: заменить print на реальный SMTP после подключения notifications
+    print(f"[DEV] Password reset link for {user.email}: {reset_link}")
+
+    return {"message": "Если такой email зарегистрирован, письмо отправлено.", "dev_link": reset_link}
+
+
+@router.post("/password-reset/confirm")
+def confirm_password_reset(body: PasswordResetConfirm, db: Session = Depends(get_db)):
+    if len(body.new_password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
+
+    record = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == body.token,
+        PasswordResetToken.is_used == False,
+        PasswordResetToken.expires_at > datetime.now(timezone.utc),
+    ).first()
+
+    if not record:
+        raise HTTPException(400, "Invalid or expired reset link")
+
+    user = db.query(User).filter(User.id == record.user_id).first()
+    user.password_hash = hash_password(body.new_password)
+    record.is_used = True
+    db.commit()
+
+    return {"message": "Password changed successfully"}

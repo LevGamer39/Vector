@@ -46,16 +46,17 @@ class User(Base):
     last_name = Column(String(100), nullable=False)
     role = Column(SAEnum(UserRole), nullable=False)
     avatar_url = Column(String(500), nullable=True)
-    grade = Column(String(20), nullable=True)
+    grade = Column(String(20), nullable=True)  # для ученика: "10А"
     telegram_id = Column(String(100), nullable=True, unique=True)
-    is_active = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=False)  # активируется после подтверждения email
     is_verified = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # Настройки уведомлений
     notify_email = Column(Boolean, default=True)
     notify_browser = Column(Boolean, default=True)
     notify_telegram = Column(Boolean, default=False)
-    notify_digest_time = Column(String(5), default="08:00")
+    notify_digest_time = Column(String(5), default="08:00")  # "HH:MM"
 
     classes_taught = relationship("Class", back_populates="teacher")
     class_memberships = relationship("ClassMembership", back_populates="student")
@@ -95,7 +96,7 @@ class Class(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
     teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    invite_code = Column(String(12), unique=True, nullable=False)
+    invite_code = Column(String(12), unique=True, nullable=False)  # код для вступления в класс
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     teacher = relationship("User", back_populates="classes_taught")
@@ -125,6 +126,7 @@ class ParentStudent(Base):
 
 
 class Assignment(Base):
+    """Задание, созданное учителем для класса или конкретных учеников."""
     __tablename__ = "assignments"
 
     id = Column(Integer, primary_key=True)
@@ -142,6 +144,12 @@ class Assignment(Base):
 
 
 class Task(Base):
+    """
+    Задача ученика. Может быть создана:
+    - учителем (assignment_id заполнен, is_personal=False)
+    - самим учеником (assignment_id=None, is_personal=True)
+    - ИИ как подзадача (parent_task_id заполнен)
+    """
     __tablename__ = "tasks"
 
     id = Column(Integer, primary_key=True)
@@ -156,7 +164,7 @@ class Task(Base):
     status = Column(SAEnum(TaskStatus), default=TaskStatus.pending)
     priority = Column(SAEnum(TaskPriority), default=TaskPriority.medium)
     is_personal = Column(Boolean, default=False)
-    ai_suggested_time = Column(String(5), nullable=True)
+    ai_suggested_time = Column(String(5), nullable=True)  # "HH:MM" — оптимальное время по версии ИИ
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)
@@ -174,7 +182,7 @@ class Grade(Base):
     student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     assignment_id = Column(Integer, ForeignKey("assignments.id"), nullable=True)
     subject = Column(String(100), nullable=False)
-    value = Column(Float, nullable=False)
+    value = Column(Float, nullable=False)  # 1-5 или 100-балльная
     comment = Column(Text, nullable=True)
     graded_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     graded_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -183,14 +191,15 @@ class Grade(Base):
 
 
 class Schedule(Base):
+    """Расписание уроков — как в дневнике."""
     __tablename__ = "schedule"
 
     id = Column(Integer, primary_key=True)
     student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     subject = Column(String(100), nullable=False)
     teacher_name = Column(String(255), nullable=True)
-    weekday = Column(Integer, nullable=False)
-    start_time = Column(String(5), nullable=False)
+    weekday = Column(Integer, nullable=False)  # 0=пн, 6=вс
+    start_time = Column(String(5), nullable=False)  # "HH:MM"
     end_time = Column(String(5), nullable=False)
     room = Column(String(50), nullable=True)
 
@@ -215,6 +224,7 @@ class Notification(Base):
 
 
 class ParentLinkToken(Base):
+    """6-значный код который ученик показывает родителю для привязки."""
     __tablename__ = "parent_link_tokens"
 
     id = Column(Integer, primary_key=True)
@@ -225,12 +235,23 @@ class ParentLinkToken(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token = Column(String(64), unique=True, nullable=False, index=True)
+    is_used = Column(Boolean, default=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class AIMessage(Base):
     __tablename__ = "ai_messages"
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    role = Column(String(20), nullable=False)
+    role = Column(String(20), nullable=False)  # "user" | "assistant"
     content = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

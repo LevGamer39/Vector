@@ -425,7 +425,8 @@ html, body {
     border-radius: 14px;
     margin-bottom: clamp(6px, 0.8vw, 8px);
     overflow: hidden;
-    min-height: clamp(60px, 8vw, 68px);
+	min-height: clamp(60px, 8vw, 70px);
+	height: auto;
 }
 
 .task-item:last-child { margin-bottom: 0; }
@@ -455,7 +456,7 @@ html, body {
     border-radius: 20px;
     font-size: clamp(9px, 0.75vw, 12px);
     font-weight: 700;
-    color: #fff;
+    color: #000000;
     margin-bottom: clamp(3px, 0.4vw, 4px);
     width: fit-content;
 }
@@ -666,4 +667,166 @@ html, body {
     color: rgba(255,255,255,0.6);
     text-align: center;
     margin-top: 2px;
+}
+
+/* ─── NOTIFICATIONS MODAL (Figma adaptation) ─── */
+
+/* Контейнер для позиционирования (добавь этот класс к .notif-wrap в HTML) */
+/* ─── NOTIFICATIONS MODAL (Updated) ─── */
+
+.notif-wrap {
+    position: relative;
+    z-index: 1001;
+}
+
+.notif-modal {
+    position: absolute;
+    width: 314px;
+    height: 314px;
+    top: calc(100% + 15px);
+    right: 0;
+    background: #18171C;
+    box-shadow: inset 0px 4px 14px rgba(255, 255, 255, 0.3), 0px 15px 30px rgba(0, 0, 0, 0.7);
+    border-radius: 30px;
+    padding: 20px;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    cursor: default;
+}
+
+/* When shown via JS, set display:flex */
+.notif-modal[style*="display: flex"] {
+    display: flex !important;
+}
+
+.notif-modal.active {
+    display: flex;
+}
+
+.notif-title {
+    font-size: 22px; /* Уменьшен шрифт заголовка */
+    font-weight: 600;
+    color: #FFFFFF;
+    margin-bottom: 15px;
+    letter-spacing: -0.05em;
+    font-family: 'Gilroy', 'Inter', sans-serif;
+}
+
+.notif-scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+/* Настройка встроенного скроллбара (вместо отдельной серой плашки) */
+.notif-scroll-area::-webkit-scrollbar {
+    width: 4px;
+}
+
+.notif-scroll-area::-webkit-scrollbar-track {
+    background: rgba(217, 217, 217, 0.1);
+    border-radius: 10px;
+}
+
+.notif-scroll-area::-webkit-scrollbar-thumb {
+    background: #9D9D9D;
+    border-radius: 10px;
+}
+
+.notif-item {
+    width: 100%;
+    min-height: 50px;
+    background: #3C3C3C;
+    border: 0.5px solid #8B79FF;
+    box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.4);
+    border-radius: 12px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.notif-author {
+    font-size: 11px; /* Уменьшен шрифт автора */
+    font-weight: 500;
+    color: #FFFFFF;
+    opacity: 0.5;
+    line-height: 1.1;
+}
+
+.notif-time {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    font-size: 10px; /* Уменьшен шрифт времени */
+    font-weight: 500;
+    color: #FFFFFF;
+    opacity: 0.3;
+}
+
+.notif-text {
+    font-size: 14px; /* Уменьшен шрифт основного текста */
+    font-weight: 600;
+    color: #FFFFFF;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Удаляем старые классы скролла, которые перекрывали контент */
+.notif-scrollbar-custom, .notif-scroll-thumb {
+    display: none;
+}
+
+/* Unread state */
+.notif-item--unread {
+    border-color: #8B79FF;
+    background: #46436A;
+}
+
+.notif-unread-dot {
+    position: absolute;
+    top: 8px;
+    left: -4px;
+    width: 8px;
+    height: 8px;
+    background: #8B79FF;
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(139,121,255,.8);
+}
+
+/* AI text overflow fix */
+.ai-text {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+}
+
+.ai-text::-webkit-scrollbar { width: 3px; }
+.ai-text::-webkit-scrollbar-track { background: transparent; }
+.ai-text::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 4px; }
+
+#aiSummary {
+    font-size: clamp(12px, 1.15vw, 16px);
+    font-weight: 400;
+    color: rgba(255,255,255,.9);
+    line-height: 1.55;
+    letter-spacing: -0.02em;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* Task name overflow */
+.task-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
