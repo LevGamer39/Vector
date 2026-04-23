@@ -151,7 +151,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES=10080
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your@gmail.com
-SMTP_PASSWORD=your-app-password
 EMAIL_FROM=your@gmail.com
 
 OLLAMA_URL=http://localhost:11434
@@ -161,7 +160,6 @@ APP_URL=http://localhost:8000
 DEBUG=true
 ```
 
-> Для Gmail нужен App Password: [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
 
 ---
 
