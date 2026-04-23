@@ -12,6 +12,7 @@ from passlib.context import CryptContext
 from app.database import get_db
 from app.models import User, UserRole, InviteCode, EmailVerification, ParentStudent, ParentLinkToken, PasswordResetToken
 from app.config import settings
+from app.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -113,13 +114,6 @@ def require_role(*roles: UserRole):
     return dependency
 
 
-# ---------------------------------------------------------------------------
-# Email verification helper (без SMTP пока — заглушка, добавим в notifications)
-# ---------------------------------------------------------------------------
-
-def _send_verification_email(email: str, code: str):
-    # TODO: заменить на реальный SMTP в notifications.py
-    print(f"[DEV] Verification code for {email}: {code}")
 
 
 def _create_verification(user_id: int, db: Session) -> str:
@@ -136,8 +130,16 @@ def _create_verification(user_id: int, db: Session) -> str:
 
 @router.post("/register", status_code=201)
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.email == body.email).first():
-        raise HTTPException(400, "Email already registered")
+    existing_user = db.query(User).filter(User.email == body.email).first()
+    
+    if existing_user:
+        if existing_user.is_active:
+            raise HTTPException(400, "Email already registered")
+        else:
+            db.query(EmailVerification).filter(EmailVerification.user_id == existing_user.id).delete()
+            db.query(PasswordResetToken).filter(PasswordResetToken.user_id == existing_user.id).delete()
+            db.delete(existing_user)
+            db.flush()
 
     if body.role == UserRole.teacher:
         if not body.invite_code:
@@ -170,7 +172,8 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         invite.used_at = datetime.now(timezone.utc)
 
     code = _create_verification(user.id, db)
-    _send_verification_email(user.email, code)
+    from app.routers.notifications import send_verification_email
+    send_verification_email(user.email, code)
     db.commit()
 
     return {"message": "Registration successful. Check your email for verification code."}
@@ -203,7 +206,8 @@ def resend_verification(email: EmailStr, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(400, "User not found or already verified")
     code = _create_verification(user.id, db)
-    _send_verification_email(user.email, code)
+    from app.routers.notifications import send_verification_email
+    send_verification_email(user.email, code)
     return {"message": "Code sent"}
 
 
@@ -349,12 +353,14 @@ def request_password_reset(body: PasswordResetRequest, db: Session = Depends(get
     expires = datetime.now(timezone.utc) + timedelta(hours=1)
     db.add(PasswordResetToken(user_id=user.id, token=token, expires_at=expires))
     db.commit()
-
+    from app.routers.notifications import send_password_reset_email
     reset_link = f"{settings.app_url}/reset-password-new?token={token}"
-    # TODO: заменить print на реальный SMTP после подключения notifications
-    print(f"[DEV] Password reset link for {user.email}: {reset_link}")
+    try:
+        send_password_reset_email(user.email, reset_link)
+    except Exception as e:
+        print(f"[MAIL] Ошибка отправки письма сброса пароля: {e}")
 
-    return {"message": "Если такой email зарегистрирован, письмо отправлено.", "dev_link": reset_link}
+    return {"message": "Если такой email зарегистрирован, письмо отправлено."}
 
 
 @router.post("/password-reset/confirm")
