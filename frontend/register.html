@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Зарегистрируйтесь</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="/static/favicon/favicon.ico">
+    <link rel="apple-touch-icon" href="/static/favicon/apple-touch-icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/register.css">
 </head>
@@ -45,8 +48,26 @@
             <p class="login-link">У вас уже есть аккаунт? <a href="login">Войдите в систему</a></p>
         </div>
     </div>
-    <script src="/static/js/auth-guard.js"></script>
-    <script>window.AuthGuard?.redirectIfAuthenticated();</script>
+    <script>
+        (async function () {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            try {
+                const res = await fetch(window.location.origin + '/api/users/me', {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!res.ok) {
+                    localStorage.removeItem('token');
+                    return;
+                }
+                const user = await res.json();
+                const next = user.role === 'teacher' ? '/teacher/dashboard' : user.role === 'parent' ? '/parent/dashboard' : '/student/dashboard';
+                window.location.replace(next);
+            } catch (_) {
+                localStorage.removeItem('token');
+            }
+        })();
+    </script>
     <script src="/static/js/register.js"></script>
 </body>
 </html>
