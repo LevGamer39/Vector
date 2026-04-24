@@ -36,7 +36,6 @@
 | **Nginx** | Reverse proxy, SSL termination |
 | **Let's Encrypt** + **Certbot** | HTTPS-сертификат, автообновление |
 
-### Планируется
 - **Яндекс OAuth** — альтернативный способ входа
 
 ---
@@ -124,13 +123,13 @@ project/
     │   ├── calendar.html
     │   ├── ai.html
     │   └── profile.html
-    ├── teacher/
+    ├── teacher/ - планируется
     │   ├── dashboard.html
     │   ├── classes.html
     │   ├── class.html
     │   ├── assignments.html
     │   └── assignment-new.html
-    └── parent/
+    └── parent/ - планируется
         ├── dashboard.html
         ├── child.html
         └── notifications.html
@@ -291,6 +290,6 @@ SQLite3, файл `backend/data/app.db`, смонтирован как Docker vo
 
 - **Email** — через локальный SMTP-relay (порт 2525), очередь обрабатывается каждую минуту
 - **Браузер** — хранятся в БД, фронт запрашивает при загрузке страницы
-- **Telegram** — не реализован
+- **ВК** — не реализован
 
 Просроченные задачи помечаются каждые 10 минут фоновым джобом.
