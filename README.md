@@ -9,29 +9,66 @@
 ### Backend
 | Технология | Назначение |
 |---|---|
-| **FastAPI** (Python) | REST API, маршрутизация, валидация |
+| **FastAPI** (Python 3.12) | REST API, маршрутизация, валидация |
 | **SQLite3** + **SQLAlchemy** | База данных, ORM |
-| **python-jose** + **passlib** | JWT-авторизация, хэширование паролей |
-| **APScheduler** + **asyncio** | Фоновые задачи (проверка дедлайнов, очередь уведомлений) |
-| **SMTP** (Gmail) | Email-уведомления |
+| **python-jose** + **passlib[bcrypt]** | JWT-авторизация, хэширование паролей |
+| **APScheduler** + **asyncio** | Фоновые задачи (просрочка дедлайнов, очередь уведомлений) |
+| **SMTP** (локальный relay, порт 2525) | Email-уведомления |
 | **httpx** | Асинхронные запросы к Ollama |
 
 ### AI
 | Технология | Назначение |
 |---|---|
-| **Ollama** | Локальный LLM-сервер |
-| **Qwen2.5:7b** | Языковая модель (планирование, приоритеты, разбивка задач) |
+| **Ollama** | Локальный LLM-сервер (Docker-контейнер) |
+| **Qwen2.5:7b** | Языковая модель — планирование, приоритеты, разбивка задач |
 
 ### Frontend
 | Технология | Назначение |
 |---|---|
-| **HTML / CSS / JS** | Чистый фронтенд без фреймворков |
+| **HTML / CSS / JS** | Без фреймворков |
 | **Canvas API** | Графики успеваемости |
-| **LocalStorage** | Хранение JWT-токена и данных сессии |
+| **LocalStorage** | Хранение JWT и данных сессии |
+
+### Инфраструктура
+| Технология | Назначение |
+|---|---|
+| **Docker** + **Docker Compose** | Контейнеризация (backend, ollama, nginx) |
+| **Nginx** | Reverse proxy, SSL termination |
+| **Let's Encrypt** + **Certbot** | HTTPS-сертификат, автообновление |
 
 ### Планируется
-- **Telegram-бот** — второй способ входа и канал уведомлений
-- **Docker Compose** — контейнеризация (backend, frontend, ollama)
+- **Яндекс OAuth** — альтернативный способ входа
+
+---
+
+## Архитектура
+
+```
+Интернет
+    │
+    ▼ :80 / :443
+┌─────────────────────────────┐
+│         Сервер              │
+│                             │
+│  ┌─────────────────────┐    │
+│  │  Docker: nginx      │    │  ← SSL termination, HTTP→HTTPS редирект
+│  └────────┬────────────┘    │
+│           │ proxy_pass      │
+│  ┌────────▼────────────┐    │
+│  │  Docker: backend    │    │  ← FastAPI (внутри сети, наружу не видна)
+│  └────────┬────────────┘    │
+│           │ http://ollama   │
+│  ┌────────▼────────────┐    │
+│  │  Docker: ollama     │    │  ← Qwen2.5:7b (внутри сети, наружу не видна)
+│  └─────────────────────┘    │
+│                             │
+│  ┌─────────────────────┐    │
+│  │  Docker: certbot    │    │  ← Автообновление сертификата каждые 12ч
+│  └─────────────────────┘    │
+└─────────────────────────────┘
+```
+
+Все контейнеры в одной Docker-сети `vector_net`. Наружу открыты только порты 80 и 443 через nginx.
 
 ---
 
@@ -39,57 +76,64 @@
 
 ```
 project/
+├── docker-compose.yml
+├── .env
+├── .env.example
+├── .dockerignore
+├── README.md
+│
+├── nginx/
+│   ├── nginx.conf
+│   └── certbot/              ← создаётся при первом запуске certbot
+│       ├── conf/             ← сертификаты Let's Encrypt
+│       └── www/              ← ACME challenge файлы
+│
 ├── backend/
-│   ├── app/
-│   │   ├── main.py              # Точка входа FastAPI, все маршруты
-│   │   ├── config.py            # Настройки из .env
-│   │   ├── database.py          # SQLAlchemy engine, сессии
-│   │   ├── models.py            # Все модели БД
-│   │   └── routers/
-│   │       ├── users.py         # Авторизация, JWT, профиль, сброс пароля
-│   │       ├── admin.py         # Панель администратора, инвайт-коды
-│   │       ├── classes.py       # Классы учителя, вступление учеников
-│   │       ├── assignments.py   # Задания учителя
-│   │       ├── tasks.py         # Задачи ученика
-│   │       ├── grades.py        # Оценки
-│   │       ├── schedule.py      # Расписание уроков
-│   │       ├── ai.py            # Чат с Qwen, анализ нагрузки, подзадачи
-│   │       └── notifications.py # Уведомления, SMTP, APScheduler
-│   └── requirements.txt
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   └── app/
+│       ├── main.py
+│       ├── config.py
+│       ├── database.py
+│       ├── models.py
+│       └── routers/
+│           ├── users.py
+│           ├── admin.py
+│           ├── classes.py
+│           ├── assignments.py
+│           ├── tasks.py
+│           ├── grades.py
+│           ├── schedule.py
+│           ├── ai.py
+│           └── notifications.py
 │
-├── frontend/
-│   ├── index.html               # Лендинг (публичный)
-│   ├── login.html               # Вход
-│   ├── register.html            # Регистрация (ученик / учитель / родитель)
-│   ├── verify.html              # Подтверждение email (6-значный код)
-│   ├── reset-password.html      # Запрос сброса пароля
-│   ├── reset-password-new.html  # Ввод нового пароля по ссылке
-│   ├── 404.html
-│   ├── settings.html
-│   ├── css/
-│   │   └── base.css             # Общие стили внутренних страниц
-│   ├── js/
-│   │   └── api.js               # Общий fetch-хелпер, requireAuth()
-│   ├── student/
-│   │   ├── dashboard.html       # Дашборд ученика
-│   │   ├── tasks.html           # Задачи
-│   │   ├── calendar.html        # Календарь дедлайнов
-│   │   ├── ai.html              # ИИ-ассистент
-│   │   └── profile.html         # Профиль
-│   ├── teacher/
-│   │   ├── dashboard.html
-│   │   ├── classes.html
-│   │   ├── class.html           # Страница класса /classes/:id
-│   │   ├── assignments.html
-│   │   └── assignment-new.html
-│   └── parent/
-│       ├── dashboard.html
-│       ├── child.html           # Страница ребёнка /child/:id
-│       └── notifications.html
-│
-├── .env                         # Переменные окружения (не в git)
-├── .env.example                 # Шаблон
-└── README.md
+└── frontend/
+    ├── index.html
+    ├── login.html
+    ├── register.html
+    ├── verify.html
+    ├── reset-password.html
+    ├── reset-password-new.html
+    ├── 404.html
+    ├── settings.html
+    ├── css/base.css
+    ├── js/api.js
+    ├── student/
+    │   ├── dashboard.html / .css / .js
+    │   ├── tasks.html / .css / .js
+    │   ├── calendar.html
+    │   ├── ai.html
+    │   └── profile.html
+    ├── teacher/
+    │   ├── dashboard.html
+    │   ├── classes.html
+    │   ├── class.html
+    │   ├── assignments.html
+    │   └── assignment-new.html
+    └── parent/
+        ├── dashboard.html
+        ├── child.html
+        └── notifications.html
 ```
 
 ---
@@ -99,44 +143,88 @@ project/
 | Роль | Возможности |
 |---|---|
 | **Ученик** | Задачи, календарь, ИИ-чат, расписание, оценки, профиль |
-| **Учитель** | Создание заданий, управление классами, просмотр прогресса учеников, оценки |
+| **Учитель** | Создание заданий, управление классами, просмотр прогресса, оценки |
 | **Родитель** | Просмотр задач и оценок ребёнка (только чтение), уведомления |
 | **Администратор** | Генерация инвайт-кодов для учителей |
 
 ---
 
-## Запуск локально
+## Развёртывание
 
-### 1. Клонировать репозиторий и перейти в папку backend
+### Требования к серверу
+- Публичный IP-адрес
+- Docker + Docker Compose
+- Домен с A-записью на IP сервера
+- Открытые порты: 80, 443
+
+### 1. Клонировать репозиторий
 
 ```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+git clone <repo> /opt/vector
+cd /opt/vector
 ```
 
-### 2. Настроить окружение
+### 2. Настроить .env
 
 ```bash
 cp .env.example .env
-# Отредактировать .env — вписать SMTP, SECRET_KEY и т.д.
+nano .env
+# Указать SECRET_KEY, SMTP, APP_URL=https://vkcollege.ru
 ```
 
-### 3. Запустить backend
+### 3. Получить SSL-сертификат (первый раз)
+
+Nginx не запустится без сертификата, поэтому сначала запрашиваем его через временный HTTP-сервер:
 
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Запустить только nginx в HTTP-режиме (без SSL-блока)
+# Закомментировать server { listen 443... } в nginx.conf, запустить:
+docker compose up -d nginx
+
+# Получить сертификат
+docker compose run --rm certbot certonly \
+  --webroot -w /var/www/certbot \
+  -d vkcollege.ru -d www.vkcollege.ru \
+  --email admin@vkcollege.ru \
+  --agree-tos --no-eff-email
+
+# Раскомментировать HTTPS-блок в nginx.conf
+# Перезапустить nginx
+docker compose restart nginx
 ```
 
-Приложение доступно на `http://localhost:8000`.
-Документация API: `http://localhost:8000/docs`
-
-### 4. Ollama (для ИИ)
+### 4. Запустить все сервисы
 
 ```bash
-ollama serve
-ollama pull qwen2.5:7b
+docker compose up -d --build
+```
+
+### 5. Скачать модель Qwen (один раз)
+
+```bash
+docker exec vector_ollama ollama pull qwen2.5:7b
+```
+
+### 6. Проверить
+
+```bash
+docker compose ps          # все контейнеры Up
+curl https://vkcollege.ru/health  # {"status":"ok"}
+```
+
+### Обновление приложения
+
+```bash
+git pull
+docker compose up -d --build backend
+```
+
+### Просмотр логов
+
+```bash
+docker compose logs -f backend   # логи FastAPI
+docker compose logs -f nginx     # логи nginx
+docker compose logs -f ollama    # логи Ollama
 ```
 
 ---
@@ -144,40 +232,46 @@ ollama pull qwen2.5:7b
 ## Переменные окружения (.env)
 
 ```env
+# База данных
 DB_PATH=data/app.db
-SECRET_KEY=your-secret-key
+
+# JWT — обязательно сменить
+SECRET_KEY=замени-на-длинную-случайную-строку
 ACCESS_TOKEN_EXPIRE_MINUTES=10080
 
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your@gmail.com
-EMAIL_FROM=your@gmail.com
+# SMTP (локальный relay)
+SMTP_HOST=127.0.0.1
+SMTP_PORT=2525
+SMTP_USER=
+SMTP_PASSWORD=
+EMAIL_FROM=noreply@vkcollege.ru
 
-OLLAMA_URL=http://localhost:11434
+# Ollama (имя Docker-сервиса)
+OLLAMA_URL=http://ollama:11434
 OLLAMA_MODEL=qwen2.5:7b
 
-APP_URL=http://localhost:8000
-DEBUG=true
+# Приложение
+APP_URL=https://vkcollege.ru
+DEBUG=false
 ```
-
 
 ---
 
 ## Система авторизации
 
 - Регистрация → подтверждение email (6-значный код, 15 мин)
-- Учителя регистрируются только по инвайт-коду (16 символов, генерирует админ)
+- Учителя регистрируются только по инвайт-коду (генерирует админ)
 - JWT-токен, время жизни 7 дней
 - Сброс пароля через ссылку на email (токен живёт 1 час)
-- Привязка родителя к ребёнку через 6-значный код в профиле ученика (живёт 24 часа)
+- Привязка родителя к ребёнку через 6-значный код из профиля ученика (живёт 24 часа)
+- Яндекс OAuth — запланирован
 
 ---
 
 ## ИИ-ассистент
 
-Модель **Qwen2.5:7b** через Ollama. Системный промпт запрещает решать задания и писать тексты — только планирование.
+Модель **Qwen2.5:7b** через Ollama. Запрещено решать задания и писать тексты за ученика.
 
-Возможности:
 - Чат с контекстом текущих задач и расписания
 - Анализ нагрузки на неделю
 - Разбивка задачи на подзадачи (сохраняются в БД)
@@ -187,15 +281,16 @@ DEBUG=true
 
 ## База данных
 
-SQLite3, файл `backend/data/app.db`. Таблицы создаются автоматически при первом запуске.
+SQLite3, файл `backend/data/app.db`, смонтирован как Docker volume. Таблицы создаются автоматически при первом запуске.
 
-При изменении моделей — удалить `app.db` и перезапустить сервер (миграции не настроены, данные сбрасываются).
+При изменении моделей — удалить `data/app.db` и перезапустить `backend` (данные сбросятся).
 
 ---
 
 ## Уведомления
 
-- **Email** — через SMTP, очередь обрабатывается каждую минуту (APScheduler)
+- **Email** — через локальный SMTP-relay (порт 2525), очередь обрабатывается каждую минуту
 - **Браузер** — хранятся в БД, фронт запрашивает при загрузке страницы
+- **Telegram** — не реализован
 
 Просроченные задачи помечаются каждые 10 минут фоновым джобом.
