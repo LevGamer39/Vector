@@ -309,6 +309,9 @@ async function sendMessage(message, options = {}) {
         if (!res.ok) throw new Error(data.detail || 'Не удалось получить ответ ИИ');
 
         removeTypingBubble();
+        if (data.action === 'task_created' && data.data?.title) {
+            showToast(`Задача добавлена: ${data.data.title}`);
+        }
 
         if (regenerate && targetIndex !== null) {
             const row = document.querySelector(`.ai-message-row--assistant[data-assistant-index="${targetIndex}"]`);
