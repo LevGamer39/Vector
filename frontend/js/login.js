@@ -1,5 +1,5 @@
 const API = window.location.origin;
-const ROUTES = { student: 'student/dashboard', teacher: 'teacher/dashboard', parent: 'parent/dashboard', admin: 'student/dashboard' };
+const ROUTES = { student: '/student/dashboard', teacher: '/teacher/dashboard', parent: '/parent/dashboard', admin: '/admin/dashboard' };
 
 document.getElementById('btn').addEventListener('click', login);
 document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
@@ -24,7 +24,7 @@ async function login() {
 		if (!res.ok) throw data.detail || 'Ошибка входа';
 		localStorage.setItem('token', data.access_token);
 		localStorage.setItem('user', JSON.stringify({ role: data.role, name: data.name }));
-		window.location.href = ROUTES[data.role] || 'student/dashboard';
+		window.location.href = ROUTES[data.role] || '/student/dashboard';
 	} catch (e) {
 		err.textContent = typeof e === 'string' ? e : 'Неверный email или пароль';
 		err.style.display = 'block';

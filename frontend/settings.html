@@ -11,13 +11,19 @@
     <link rel="stylesheet" href="/static/student/css/dashboard.css">
     <link rel="stylesheet" href="/static/student/css/settings.css">
 </head>
-<body>
+<body class="settings-loading">
     <div class="bg">
         <img src="/static/student/images/fon.svg" alt="">
         <div class="bg-light-2b"></div>
     </div>
 
     <div class="layout">
+        <button class="mobile-nav-toggle" type="button" aria-label="Открыть меню" aria-expanded="false" data-mobile-nav-toggle>
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        <div class="sidebar-overlay"></div>
         <aside class="sidebar">
             <div class="sidebar-logo">
                 <div class="sidebar-logo-text">
@@ -52,7 +58,7 @@
             </nav>
 
             <div class="sidebar-bottom">
-                <a href="/settings" class="nav-item nav-item-settings active">
+                <a href="/student/settings" class="nav-item nav-item-settings active">
                     <img src="/static/student/images/settings.svg" alt="">
                     <span class="nav-label">Настройки</span>
                 </a>
@@ -64,7 +70,7 @@
                 <div class="topbar settings-topbar">
                     <div class="settings-topbar-spacer"></div>
                     <div class="topbar-right">
-                        <div class="streak-badge">
+                        <div class="streak-badge" id="settingsStreakBadge">
                             <img src="/static/student/images/strike.svg" alt="">
                             <span class="streak-count" id="streakCount">0</span>
                         </div>
@@ -150,7 +156,7 @@
                                 <button class="settings-wide-btn settings-wide-btn--danger" id="logoutBtn" type="button">Выйти из аккаунта</button>
 
                                 <div class="settings-mini-grid">
-                                    <article class="settings-mini-card">
+                                    <article class="settings-mini-card" id="gradeCard">
                                         <div class="settings-mini-icon settings-mini-icon--yandex">Я</div>
                                         <div class="settings-mini-title">Яндекс</div>
                                         <div class="settings-mini-sub" id="yandexStatus">Не подключён</div>
@@ -187,6 +193,7 @@
         </div>
     </div>
 
+    <script src="/static/js/mobile-nav.js"></script>
     <script src="/static/student/js/settings.js"></script>
 </body>
 </html>

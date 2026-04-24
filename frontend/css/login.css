@@ -229,3 +229,48 @@ html, body {
 	margin-bottom: 16px;
 	text-align: center;
 }
+
+@media (max-width: 768px) {
+	html,
+	body {
+		height: auto;
+		min-height: 100%;
+		overflow: auto;
+	}
+
+	.page {
+		min-height: 100svh;
+		height: auto;
+		padding: 20px 16px;
+	}
+
+	.card {
+		width: min(100%, 560px);
+		padding: 34px 20px 28px;
+	}
+
+	.subtitle,
+	.field-label,
+	.forgot,
+	.divider-text,
+	.reg-link {
+		font-size: 16px;
+	}
+
+	.field-header {
+		gap: 10px;
+		align-items: flex-start;
+		flex-direction: column;
+	}
+
+	.field-input,
+	.btn-login,
+	.btn-yandex {
+		height: 48px;
+		font-size: 17px;
+	}
+
+	.btn-yandex span {
+		font-size: 22px;
+	}
+}

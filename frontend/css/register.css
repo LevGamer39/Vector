@@ -212,3 +212,49 @@ html, body {
     margin-bottom: 16px;
     text-align: center;
 }
+
+@media (max-width: 768px) {
+    html,
+    body {
+        height: auto;
+        min-height: 100%;
+        overflow: auto;
+    }
+
+    .page {
+        min-height: 100svh;
+        height: auto;
+        padding: 20px 16px;
+    }
+
+    .card {
+        width: min(100%, 560px);
+        padding: 34px 20px 28px;
+    }
+
+    .role-tabs,
+    .row {
+        grid-template-columns: 1fr;
+        flex-direction: column;
+    }
+
+    .role-tabs {
+        display: grid;
+    }
+
+    .subtitle,
+    .field-label,
+    .login-link {
+        font-size: 16px;
+    }
+
+    .field-input,
+    .btn-register {
+        height: 48px;
+        font-size: 17px;
+    }
+
+    .btn-register {
+        font-size: 22px;
+    }
+}

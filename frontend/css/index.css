@@ -123,6 +123,14 @@
         gap: 15px;
         text-align: center;
     }
+    .nav-buttons {
+        width: 100%;
+        flex-direction: column;
+    }
+    .btn-nav,
+    .btn-try {
+        width: 100%;
+    }
     .index-card {
         padding: 40px 20px;
     }

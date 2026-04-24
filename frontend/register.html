@@ -61,7 +61,13 @@
                     return;
                 }
                 const user = await res.json();
-                const next = user.role === 'teacher' ? '/teacher/dashboard' : user.role === 'parent' ? '/parent/dashboard' : '/student/dashboard';
+                const next = user.role === 'admin'
+                    ? '/admin/dashboard'
+                    : user.role === 'teacher'
+                        ? '/teacher/dashboard'
+                        : user.role === 'parent'
+                            ? '/parent/dashboard'
+                            : '/student/dashboard';
                 window.location.replace(next);
             } catch (_) {
                 localStorage.removeItem('token');

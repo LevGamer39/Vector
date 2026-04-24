@@ -165,8 +165,7 @@ def _notification_html(title: str, body: str) -> str:
 
 def send_email(to: str, subject: str, body_html: str):
     if not settings.smtp_host:
-        print(f"[DEV] Письмо на {to}: {subject}")
-        return
+        raise RuntimeError("SMTP is not configured")
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
@@ -184,7 +183,7 @@ def send_email(to: str, subject: str, body_html: str):
             server.send_message(msg)
             print(f"✅ Письмо успешно отправлено на {to}")
     except Exception as e:
-        print(f"❌ Ошибка SMTP: {e}")
+        raise RuntimeError(f"SMTP error: {e}")
 
 
 def send_verification_email(to: str, code: str):

@@ -1,3 +1,13 @@
+.settings-loading .layout {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.settings-ready .layout {
+    opacity: 1;
+    transition: opacity 0.18s ease;
+}
+
 .settings-main {
     padding-top: 18px;
 }
@@ -5,6 +15,10 @@
 .settings-topbar {
     align-items: center;
     margin-bottom: 8px;
+}
+
+.settings-topbar .streak-badge.is-hidden {
+    display: none;
 }
 
 .settings-topbar-spacer {
@@ -368,6 +382,10 @@
     align-items: flex-start;
 }
 
+.settings-mini-card.is-hidden {
+    display: none;
+}
+
 .settings-class-menu {
     position: absolute;
     left: 12px;
@@ -502,6 +520,22 @@
 }
 
 @media (max-width: 980px) {
+    .settings-shell {
+        padding: 0;
+    }
+
+    .settings-panel {
+        position: static;
+    }
+
+    .settings-panel-back {
+        display: none;
+    }
+
+    .settings-panel-front {
+        padding: 20px 16px 16px;
+    }
+
     .settings-avatar-row,
     .settings-form-grid {
         grid-template-columns: 1fr;
@@ -514,5 +548,117 @@
     .settings-profile-actions {
         flex-direction: column;
         align-items: stretch;
+    }
+}
+
+@media (max-width: 640px) {
+    .settings-main {
+        padding-top: 6px;
+    }
+
+    .settings-panel-front {
+        border-radius: 20px;
+    }
+
+    .settings-close {
+        top: 12px;
+        right: 12px;
+        width: 30px;
+        height: 30px;
+        font-size: 28px;
+    }
+
+    .settings-scroll {
+        padding-right: 6px;
+        padding-top: 18px;
+    }
+
+    .settings-title {
+        padding-right: 34px;
+    }
+
+    .settings-card {
+        padding: 18px 14px;
+    }
+
+    .settings-input,
+    .settings-save-btn,
+    .settings-wide-btn {
+        height: 48px;
+    }
+
+    .settings-mini-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .settings-mini-card {
+        min-height: 0;
+    }
+}
+
+/* Обновляем контейнер страницы */
+.page {
+    position: relative;
+    z-index: 1;
+    width: 100vw;
+    min-height: 100vh;
+    /* Используем svh для современных браузеров */
+    min-height: 100svh; 
+    display: flex;
+    flex-direction: column;
+    padding: 20px 16px;
+    /* Добавляем значительный отступ снизу для мобилок */
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+@media (max-width: 768px) {
+    .page {
+        /* Увеличиваем отступ, чтобы меню браузера не перекрывало кнопки */
+        padding-bottom: 80px; 
+        height: auto;
+        overflow-y: auto;
+    }
+
+    /* Если кнопки настроек находятся в фиксированном контейнере, 
+       поднимаем его выше */
+    .settings-actions {
+        margin-top: 20px;
+        padding-bottom: 20px;
+    }
+}
+
+@media (max-width: 980px) {
+    .sidebar {
+        /* ... твои старые стили ... */
+        height: 100%;
+        height: 100svh; /* Занимает ровно видимую часть */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .sidebar-nav {
+        flex: 1;
+        overflow-y: auto;
+        /* Отступ снизу, чтобы последний пункт меню был виден над баром браузера */
+        padding-bottom: 100px; 
+    }
+}
+.settings-panel-front {
+    /* ... твои стили ... */
+    max-height: 85dvh; /* Динамическая высота - учитывает бары браузера */
+    overflow-y: auto; /* Включаем внутреннюю прокрутку */
+    padding-bottom: calc(env(safe-area-inset-bottom) + 40px) !important;
+}
+
+/* Если настройки открываются в модальном окне/layout */
+@media (max-width: 980px) {
+    .layout {
+        height: 100dvh; /* Фиксируем общую высоту экрана */
+    }
+    
+    /* Поднимаем всю рабочую область выше */
+    .settings-shell {
+        padding-bottom: 100px !important; 
     }
 }

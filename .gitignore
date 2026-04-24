@@ -185,3 +185,4 @@ config.py
 .vs
 TEST.ps1
 dashboard1.html
+*.ps1

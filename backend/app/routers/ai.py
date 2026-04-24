@@ -1,6 +1,8 @@
 import json
 import re
+import unicodedata
 from datetime import datetime, timedelta, timezone
+from difflib import SequenceMatcher
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -25,10 +27,10 @@ from app.routers.users import require_role
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
 QUICK_PROMPTS = [
-    "Помоги распланировать неделю",
-    "Что срочнее всего сделать?",
-    "Разбей большое задание на шаги",
-    "Когда лучше сесть за уроки сегодня?",
+    "Покажи мои задачи по приоритету",
+    "Добавь две задачи: подготовиться к физике и прочитать параграф 12 по истории",
+    "Удалить задачу по химии",
+    "Перенеси задачу по алгебре на завтра 18:00",
 ]
 
 WEEKDAY_MAP = {
@@ -42,21 +44,70 @@ WEEKDAY_MAP = {
     "воскресенье": 6,
 }
 
-SYSTEM_PROMPT = """Ты — учебный ассистент для школьника.
-Твоя задача: помогать с планированием учебы, приоритетами, дедлайнами и разбиением задач на шаги.
+SYSTEM_PROMPT = """Ты — умный учебный ассистент для школьника.
 
-Строгие ограничения:
-- Никогда не решай учебные задания за ученика.
-- Никогда не пиши готовые сочинения, эссе и рефераты.
-- Если просят решить задачу, вежливо откажись и предложи помочь с планом, объяснением или разбиением на шаги.
+Твои главные функции:
+- читать и кратко анализировать список задач;
+- помогать планировать учебу;
+- создавать, обновлять, завершать и удалять личные задачи ученика;
+- добавлять сразу несколько задач из одного сообщения;
+- объяснять, что именно ты сделал.
 
-Что ты умеешь:
-- анализировать список задач и расставлять приоритеты;
-- разбивать большие задания на конкретные шаги;
-- предлагать удобное время для учебы с учетом расписания;
-- кратко и понятно мотивировать.
+Ограничения:
+- не решай домашние задания за ученика;
+- не пиши готовые сочинения, эссе и контрольные;
+- если запрос не про управление задачами, помогай советом, планом и разбиением на шаги.
 
-Отвечай на языке пользователя. Будь лаконичен и практичен."""
+Формат ответа:
+- пиши только обычный текст без HTML;
+- не используй теги <br>, <b> и тому подобное;
+- отвечай коротко, ясно и по-русски."""
+
+INTENT_PROMPT = """Определи действие пользователя и верни только JSON.
+
+Разрешенные action:
+- "create_tasks"
+- "list_tasks"
+- "delete_tasks"
+- "complete_tasks"
+- "update_tasks"
+- "chat"
+
+Формат:
+{
+  "action": "create_tasks|list_tasks|delete_tasks|complete_tasks|update_tasks|chat",
+  "tasks": [
+    {
+      "title": "строка",
+      "subject": "строка или null",
+      "description": "строка или null",
+      "deadline_hint": "строка или null",
+      "priority": "low|medium|high|critical|null"
+    }
+  ],
+  "task_queries": ["как пользователь называет задачу"],
+  "updates": {
+    "title": "строка или null",
+    "subject": "строка или null",
+    "description": "строка или null",
+    "deadline_hint": "строка или null",
+    "priority": "low|medium|high|critical|null",
+    "status": "pending|in_progress|done|overdue|null"
+  },
+  "filters": {
+    "status": "pending|in_progress|done|overdue|null",
+    "subject": "строка или null"
+  }
+}
+
+Правила:
+- если пользователь просит добавить несколько задач, положи их все в tasks;
+- если пользователь просит прочитать, показать, вывести или перечислить задачи, action = "list_tasks";
+- если пользователь просит удалить задачу, action = "delete_tasks";
+- если пользователь просит отметить задачу выполненной, action = "complete_tasks";
+- если пользователь просит перенести, переименовать, поменять приоритет, срок или предмет, action = "update_tasks";
+- если запрос не про действия с задачами, action = "chat";
+- никаких пояснений, только JSON."""
 
 
 class ChatRequest(BaseModel):
@@ -79,18 +130,45 @@ class MessageResponse(BaseModel):
         from_attributes = True
 
 
+def _clean_ai_text(text: str) -> str:
+    cleaned = (text or "").strip()
+    cleaned = cleaned.replace("<br>", "\n").replace("<br/>", "\n").replace("<br />", "\n")
+    cleaned = re.sub(r"</?b>", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"</?strong>", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"</?[^>]+>", "", cleaned)
+    cleaned = cleaned.replace("&nbsp;", " ")
+    cleaned = cleaned.replace("•", "-")
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
+def _normalize_text(text: str) -> str:
+    normalized = unicodedata.normalize("NFKD", text.lower())
+    normalized = "".join(char for char in normalized if not unicodedata.combining(char))
+    normalized = re.sub(r"[^a-zа-яё0-9\s]", " ", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return normalized
+
+
+def _extract_json(raw: str) -> dict:
+    cleaned = (raw or "").strip()
+    cleaned = cleaned.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    match = re.search(r"\{.*\}", cleaned, flags=re.DOTALL)
+    payload = match.group(0) if match else cleaned
+    data = json.loads(payload)
+    if not isinstance(data, dict):
+        raise ValueError("Expected JSON object")
+    return data
+
+
 def _build_context(student_id: int, db: Session) -> str:
     now = datetime.now(timezone.utc)
 
     tasks = (
         db.query(Task)
-        .filter(
-            Task.student_id == student_id,
-            Task.status != TaskStatus.done,
-            Task.parent_task_id == None,
-        )
-        .order_by(Task.deadline.asc().nullslast())
-        .limit(20)
+        .filter(Task.student_id == student_id, Task.parent_task_id == None)
+        .order_by(Task.deadline.asc().nullslast(), Task.created_at.desc())
+        .limit(30)
         .all()
     )
 
@@ -105,15 +183,15 @@ def _build_context(student_id: int, db: Session) -> str:
     parts = [f"Сегодня: {now.strftime('%d.%m.%Y %H:%M')}"]
 
     if tasks:
-        parts.append("\nАктивные задачи:")
+        parts.append("\nЗадачи:")
         for task in tasks:
-            deadline_str = task.deadline.strftime("%d.%m %H:%M") if task.deadline else "без дедлайна"
-            overdue = " [ПРОСРОЧЕНО]" if task.deadline and task.deadline.replace(tzinfo=timezone.utc) < now else ""
+            deadline_str = task.deadline.strftime("%d.%m %H:%M") if task.deadline else "без срока"
             parts.append(
-                f"- [{task.priority.value}] {task.subject or 'Общее'}: {task.title} | дедлайн: {deadline_str}{overdue}"
+                f"- id={task.id}; статус={task.status.value}; приоритет={task.priority.value}; "
+                f"предмет={task.subject or 'общее'}; название={task.title}; дедлайн={deadline_str}"
             )
     else:
-        parts.append("\nАктивных задач нет.")
+        parts.append("\nЗадач нет.")
 
     if schedule:
         parts.append("\nРасписание:")
@@ -131,7 +209,7 @@ def _get_history(user_id: int, db: Session, limit: int = 10) -> list[dict]:
         .limit(limit)
         .all()
     )
-    return [{"role": msg.role, "content": msg.content} for msg in reversed(messages)]
+    return [{"role": item.role, "content": item.content} for item in reversed(messages)]
 
 
 async def _call_ollama(messages: list[dict]) -> str:
@@ -149,44 +227,49 @@ async def _call_ollama(messages: list[dict]) -> str:
     except httpx.ConnectError:
         raise HTTPException(503, "AI service unavailable")
     except Exception as exc:
-        raise HTTPException(500, f"AI error: {str(exc)}")
+        raise HTTPException(500, f"AI error: {exc}")
 
 
-def _detect_action(reply: str, user_message: str) -> tuple[str | None, dict | None]:
-    lower = user_message.lower()
-    if any(word in lower for word in ["разбей", "раздели", "по шагам", "подзадачи"]):
-        if any(char in reply for char in ["1.", "2.", "•", "-"]):
-            return "create_subtasks", {"hint": "Хочешь сохранить эти шаги как подзадачи?"}
-    return None, None
+async def _detect_intent(user_message: str, context: str) -> dict:
+    messages = [
+        {"role": "system", "content": INTENT_PROMPT},
+        {"role": "user", "content": f"Контекст:\n{context}\n\nСообщение пользователя:\n{user_message}"},
+    ]
+    try:
+        raw = await _call_ollama(messages)
+        data = _extract_json(raw)
+    except Exception:
+        data = {"action": "chat", "tasks": [], "task_queries": [], "updates": {}, "filters": {}}
 
-
-def _looks_like_task_create_intent(message: str) -> bool:
-    lower = message.lower()
-    create_words = ["добавь", "создай", "запиши", "поставь"]
-    task_words = ["задач", "дело", "напомин", "план"]
-    return any(word in lower for word in create_words) and any(word in lower for word in task_words)
+    data.setdefault("action", "chat")
+    data.setdefault("tasks", [])
+    data.setdefault("task_queries", [])
+    data.setdefault("updates", {})
+    data.setdefault("filters", {})
+    return data
 
 
 def _default_priority_from_text(text: str) -> TaskPriority:
     lower = text.lower()
     if any(word in lower for word in ["срочно", "сегодня", "до вечера", "сейчас"]):
         return TaskPriority.critical
-    if any(word in lower for word in ["егэ", "экзам", "контрольн", "олимпиад", "проект", "сдать"]):
+    if any(word in lower for word in ["экзам", "огэ", "егэ", "контрольн", "олимпиад", "проект", "сдать"]):
         return TaskPriority.high
     if any(word in lower for word in ["подготов", "домаш", "урок", "презентац", "повторить"]):
         return TaskPriority.medium
     return TaskPriority.medium
 
 
-def _fallback_task_title(text: str) -> str:
-    cleaned = text.strip()
-    cleaned = re.sub(r"^(пожалуйста[:,]?\s*)", "", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"^(добавь|создай|запиши|поставь)\s+(мне\s+)?(задачу|дело|напоминание)\s*", "", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"^(на\s+(сегодня|завтра|послезавтра)\s*)", "", cleaned, flags=re.IGNORECASE)
-    return cleaned.strip(" .,:;-") or "Новая задача"
+def _parse_priority(value: str | None, fallback_text: str = "") -> TaskPriority:
+    if value:
+        try:
+            return TaskPriority(value)
+        except ValueError:
+            pass
+    return _default_priority_from_text(fallback_text)
 
 
-def _parse_deadline_hint(deadline_hint: str | None, user_message: str) -> datetime | None:
+def _parse_deadline_hint(deadline_hint: str | None, user_message: str = "") -> datetime | None:
     source = f"{deadline_hint or ''} {user_message}".strip().lower()
     if not source:
         return None
@@ -228,48 +311,16 @@ def _parse_deadline_hint(deadline_hint: str | None, user_message: str) -> dateti
     return datetime(base_date.year, base_date.month, base_date.day, hour, minute, tzinfo=timezone.utc)
 
 
-async def _extract_task_payload(user_message: str, context: str) -> dict:
-    prompt = (
-        "Извлеки из сообщения ученика данные для создания личной задачи. "
-        'Ответь строго JSON без пояснений в формате {"title":"...", "subject":null, "description":null, "deadline_hint":null, "priority":"low|medium|high|critical"}. '
-        "Если предмет не указан, оставь null. Если срока нет, оставь null. "
-        "Приоритет выбери сам по важности задачи.\n\n"
-        f"Контекст ученика:\n{context}\n\n"
-        f"Сообщение ученика:\n{user_message}"
-    )
+def _store_ai_exchange(user_id: int, user_message: str, reply: str, db: Session) -> None:
+    db.add(AIMessage(user_id=user_id, role="user", content=user_message))
+    db.add(AIMessage(user_id=user_id, role="assistant", content=reply))
+    db.commit()
 
-    try:
-        raw = await _call_ollama(
-            [
-                {"role": "system", "content": "Ты извлекаешь структуру задачи. Отвечай только валидным JSON."},
-                {"role": "user", "content": prompt},
-            ]
-        )
-        raw_clean = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
-        data = json.loads(raw_clean)
-        if not isinstance(data, dict):
-            raise ValueError
-    except Exception:
-        data = {}
 
-    title = (data.get("title") or _fallback_task_title(user_message)).strip()
-    subject = data.get("subject")
-    description = data.get("description")
-    deadline_hint = data.get("deadline_hint")
-    priority_raw = str(data.get("priority") or _default_priority_from_text(user_message).value).lower()
-
-    try:
-        priority = TaskPriority(priority_raw)
-    except ValueError:
-        priority = _default_priority_from_text(user_message)
-
-    return {
-        "title": title or "Новая задача",
-        "subject": subject.strip() if isinstance(subject, str) and subject.strip() else None,
-        "description": description.strip() if isinstance(description, str) and description.strip() else None,
-        "deadline": _parse_deadline_hint(deadline_hint, user_message),
-        "priority": priority,
-    }
+def _format_deadline(deadline: datetime | None) -> str:
+    if not deadline:
+        return "без срока"
+    return deadline.astimezone(timezone.utc).strftime("%d.%m %H:%M")
 
 
 def _format_priority(priority: TaskPriority) -> str:
@@ -281,64 +332,290 @@ def _format_priority(priority: TaskPriority) -> str:
     }[priority]
 
 
-def _format_deadline(deadline: datetime | None) -> str:
-    if not deadline:
-        return "без срока"
-    return deadline.astimezone(timezone.utc).strftime("%d.%m, %H:%M")
+def _format_task(task: Task, index: int | None = None) -> str:
+    prefix = f"{index}. " if index is not None else "- "
+    return (
+        f"{prefix}{task.title} "
+        f"(id: {task.id}, статус: {task.status.value}, приоритет: {task.priority.value}, "
+        f"предмет: {task.subject or 'общее'}, дедлайн: {_format_deadline(task.deadline)})"
+    )
 
 
-async def _handle_task_creation(body: ChatRequest, current_user: User, db: Session) -> ChatResponse | None:
-    if not _looks_like_task_create_intent(body.message):
-        return None
+def _filter_tasks(student_id: int, db: Session, status: str | None = None, subject: str | None = None) -> list[Task]:
+    query = db.query(Task).filter(Task.student_id == student_id, Task.parent_task_id == None)
+    if status:
+        try:
+            query = query.filter(Task.status == TaskStatus(status))
+        except ValueError:
+            pass
+    if subject:
+        query = query.filter(Task.subject.ilike(f"%{subject.strip()}%"))
+    return query.order_by(Task.deadline.asc().nullslast(), Task.created_at.desc()).all()
 
-    context = _build_context(current_user.id, db)
-    payload = await _extract_task_payload(body.message, context)
-    title = payload["title"].strip()
 
-    if not title:
-        reply = "Не смог понять название задачи. Напиши, что именно нужно добавить."
-        db.add(AIMessage(user_id=current_user.id, role="user", content=body.message))
-        db.add(AIMessage(user_id=current_user.id, role="assistant", content=reply))
-        db.commit()
+def _match_tasks(student_id: int, queries: list[str], db: Session) -> list[Task]:
+    all_tasks = _filter_tasks(student_id, db)
+    if not queries:
+        return []
+
+    matched: list[Task] = []
+    seen_ids: set[int] = set()
+
+    for query in queries:
+        query_norm = _normalize_text(query)
+        if not query_norm:
+            continue
+
+        if query_norm.isdigit():
+            direct = next((task for task in all_tasks if task.id == int(query_norm)), None)
+            if direct and direct.id not in seen_ids:
+                matched.append(direct)
+                seen_ids.add(direct.id)
+                continue
+
+        scored: list[tuple[float, Task]] = []
+        for task in all_tasks:
+            title_norm = _normalize_text(task.title)
+            score = SequenceMatcher(None, query_norm, title_norm).ratio()
+            if query_norm in title_norm:
+                score += 0.35
+            if task.subject and _normalize_text(task.subject) in query_norm:
+                score += 0.1
+            scored.append((score, task))
+
+        scored.sort(key=lambda item: item[0], reverse=True)
+        best_score, best_task = scored[0]
+        if best_score >= 0.55 and best_task.id not in seen_ids:
+            matched.append(best_task)
+            seen_ids.add(best_task.id)
+
+    return matched
+
+
+def _fallback_create_tasks(message: str) -> list[dict]:
+    separators = re.split(r"(?:\n|;|, и | и еще | ещё | также )", message, flags=re.IGNORECASE)
+    items: list[dict] = []
+    for chunk in separators:
+        title = chunk.strip(" .,:;-")
+        title = re.sub(
+            r"^(добавь|создай|запиши|поставь)\s+(мне\s+)?(задачу|задачи|дело|дела|напоминание)\s*",
+            "",
+            title,
+            flags=re.IGNORECASE,
+        ).strip(" .,:;-")
+        if len(title) < 3:
+            continue
+        items.append(
+            {
+                "title": title,
+                "subject": None,
+                "description": None,
+                "deadline_hint": None,
+                "priority": None,
+            }
+        )
+    return items[:8]
+
+
+def _build_create_payloads(message: str, parsed_tasks: list[dict]) -> list[dict]:
+    source_tasks = parsed_tasks or _fallback_create_tasks(message)
+    payloads: list[dict] = []
+
+    for item in source_tasks[:8]:
+        title = str(item.get("title") or "").strip(" .,:;-")
+        if not title:
+            continue
+        payloads.append(
+            {
+                "title": title,
+                "subject": (item.get("subject") or None),
+                "description": (item.get("description") or None),
+                "deadline": _parse_deadline_hint(item.get("deadline_hint"), message),
+                "priority": _parse_priority(item.get("priority"), title + " " + message),
+            }
+        )
+    return payloads
+
+
+def _list_tasks_response(user_message: str, current_user: User, db: Session, filters: dict) -> ChatResponse:
+    tasks = _filter_tasks(current_user.id, db, filters.get("status"), filters.get("subject"))
+    if not tasks:
+        reply = "Сейчас подходящих задач нет."
+        _store_ai_exchange(current_user.id, user_message, reply, db)
+        return ChatResponse(reply=reply, action="tasks_listed", data={"count": 0})
+
+    lines = ["Вот твои задачи:"]
+    for index, task in enumerate(tasks[:15], start=1):
+        lines.append(_format_task(task, index))
+    if len(tasks) > 15:
+        lines.append(f"И еще {len(tasks) - 15} задач.")
+
+    reply = "\n".join(lines)
+    _store_ai_exchange(current_user.id, user_message, reply, db)
+    return ChatResponse(reply=reply, action="tasks_listed", data={"count": len(tasks)})
+
+
+def _create_tasks_response(user_message: str, current_user: User, db: Session, parsed_tasks: list[dict]) -> ChatResponse:
+    payloads = _build_create_payloads(user_message, parsed_tasks)
+    if not payloads:
+        reply = "Не смог понять, какие именно задачи нужно добавить. Напиши их чуть конкретнее."
+        _store_ai_exchange(current_user.id, user_message, reply, db)
         return ChatResponse(reply=reply)
 
-    task = Task(
-        student_id=current_user.id,
-        title=title,
-        subject=payload["subject"],
-        description=payload["description"],
-        deadline=payload["deadline"],
-        priority=payload["priority"],
-        is_personal=True,
-    )
-    db.add(task)
-    db.flush()
+    created_tasks: list[Task] = []
+    for payload in payloads:
+        task = Task(
+            student_id=current_user.id,
+            title=payload["title"],
+            subject=payload["subject"],
+            description=payload["description"],
+            deadline=payload["deadline"],
+            priority=payload["priority"],
+            is_personal=True,
+        )
+        db.add(task)
+        db.flush()
+        created_tasks.append(task)
 
-    deadline_text = _format_deadline(task.deadline)
-    priority_text = _format_priority(task.priority)
-    reply = f'Добавил задачу "{task.title}". Срок: {deadline_text}. Приоритет: {priority_text}.'
+    reply_lines = ["Добавил задачи:"]
+    for index, task in enumerate(created_tasks, start=1):
+        reply_lines.append(
+            f"{index}. {task.title} — {_format_deadline(task.deadline)}, приоритет: {_format_priority(task.priority)}"
+        )
+    reply = "\n".join(reply_lines)
 
-    db.add(AIMessage(user_id=current_user.id, role="user", content=body.message))
-    db.add(AIMessage(user_id=current_user.id, role="assistant", content=reply))
     create_notification(
         db=db,
         user_id=current_user.id,
-        title="Новая задача добавлена ИИ",
-        body=f'Задача "{task.title}" создана с приоритетом "{priority_text}".',
+        title="ИИ добавил задачи",
+        body=f"Добавлено задач: {len(created_tasks)}",
         channel=NotificationChannel.browser,
     )
-    db.commit()
-
+    _store_ai_exchange(current_user.id, user_message, reply, db)
     return ChatResponse(
         reply=reply,
         action="task_created",
-        data={
-            "task_id": task.id,
-            "title": task.title,
-            "deadline": task.deadline.isoformat() if task.deadline else None,
-            "priority": task.priority.value,
-        },
+        data={"count": len(created_tasks), "titles": [task.title for task in created_tasks]},
     )
+
+
+def _delete_tasks_response(user_message: str, current_user: User, db: Session, task_queries: list[str]) -> ChatResponse:
+    tasks = _match_tasks(current_user.id, task_queries, db)
+    personal_tasks = [task for task in tasks if task.is_personal]
+
+    if not personal_tasks:
+        reply = "Не нашел личные задачи для удаления. Попробуй указать название точнее."
+        _store_ai_exchange(current_user.id, user_message, reply, db)
+        return ChatResponse(reply=reply)
+
+    titles = [task.title for task in personal_tasks]
+    for task in personal_tasks:
+        db.delete(task)
+
+    reply = "Удалил задачи:\n" + "\n".join(f"- {title}" for title in titles)
+    _store_ai_exchange(current_user.id, user_message, reply, db)
+    return ChatResponse(reply=reply, action="task_deleted", data={"count": len(titles), "titles": titles})
+
+
+def _complete_tasks_response(user_message: str, current_user: User, db: Session, task_queries: list[str]) -> ChatResponse:
+    tasks = _match_tasks(current_user.id, task_queries, db)
+    if not tasks:
+        reply = "Не нашел задачи, которые нужно отметить выполненными."
+        _store_ai_exchange(current_user.id, user_message, reply, db)
+        return ChatResponse(reply=reply)
+
+    now = datetime.now(timezone.utc)
+    for task in tasks:
+        task.status = TaskStatus.done
+        task.completed_at = now
+
+    reply = "Отметил выполненными:\n" + "\n".join(f"- {task.title}" for task in tasks)
+    _store_ai_exchange(current_user.id, user_message, reply, db)
+    return ChatResponse(reply=reply, action="task_completed", data={"count": len(tasks), "titles": [task.title for task in tasks]})
+
+
+def _update_tasks_response(user_message: str, current_user: User, db: Session, task_queries: list[str], updates: dict) -> ChatResponse:
+    tasks = _match_tasks(current_user.id, task_queries, db)
+    if not tasks:
+        reply = "Не нашел задачи для изменения. Уточни название."
+        _store_ai_exchange(current_user.id, user_message, reply, db)
+        return ChatResponse(reply=reply)
+
+    changed_fields: list[str] = []
+    deadline = _parse_deadline_hint(updates.get("deadline_hint"), user_message) if updates.get("deadline_hint") else None
+    priority = _parse_priority(updates.get("priority"), user_message) if updates.get("priority") else None
+    status = None
+    if updates.get("status"):
+        try:
+            status = TaskStatus(updates["status"])
+        except ValueError:
+            status = None
+
+    for task in tasks:
+        if updates.get("title"):
+            task.title = updates["title"].strip()
+            if "название" not in changed_fields:
+                changed_fields.append("название")
+        if "subject" in updates and updates.get("subject"):
+            task.subject = updates["subject"].strip()
+            if "предмет" not in changed_fields:
+                changed_fields.append("предмет")
+        if "description" in updates and updates.get("description"):
+            task.description = updates["description"].strip()
+            if "описание" not in changed_fields:
+                changed_fields.append("описание")
+        if deadline:
+            task.deadline = deadline
+            if "срок" not in changed_fields:
+                changed_fields.append("срок")
+        if priority:
+            task.priority = priority
+            if "приоритет" not in changed_fields:
+                changed_fields.append("приоритет")
+        if status:
+            task.status = status
+            if status == TaskStatus.done and not task.completed_at:
+                task.completed_at = datetime.now(timezone.utc)
+            if "статус" not in changed_fields:
+                changed_fields.append("статус")
+
+    if not changed_fields:
+        reply = "Я понял, какую задачу ты имеешь в виду, но не увидел, что именно нужно поменять."
+        _store_ai_exchange(current_user.id, user_message, reply, db)
+        return ChatResponse(reply=reply)
+
+    reply = (
+        f"Обновил {len(tasks)} задач. Изменил: {', '.join(changed_fields)}.\n" +
+        "\n".join(f"- {task.title}" for task in tasks)
+    )
+    _store_ai_exchange(current_user.id, user_message, reply, db)
+    return ChatResponse(reply=reply, action="task_updated", data={"count": len(tasks), "fields": changed_fields})
+
+
+def _detect_action(reply: str, user_message: str) -> tuple[str | None, dict | None]:
+    lower = user_message.lower()
+    if any(word in lower for word in ["разбей", "раздели", "по шагам", "подзадачи"]):
+        if any(char in reply for char in ["1.", "2.", "•", "-"]):
+            return "create_subtasks", {"hint": "Хочешь сохранить эти шаги как подзадачи?"}
+    return None, None
+
+
+async def _handle_task_action(body: ChatRequest, current_user: User, db: Session) -> ChatResponse | None:
+    context = _build_context(current_user.id, db)
+    intent = await _detect_intent(body.message, context)
+    action = intent.get("action")
+
+    if action == "list_tasks":
+        return _list_tasks_response(body.message, current_user, db, intent.get("filters") or {})
+    if action == "create_tasks":
+        return _create_tasks_response(body.message, current_user, db, intent.get("tasks") or [])
+    if action == "delete_tasks":
+        return _delete_tasks_response(body.message, current_user, db, intent.get("task_queries") or [])
+    if action == "complete_tasks":
+        return _complete_tasks_response(body.message, current_user, db, intent.get("task_queries") or [])
+    if action == "update_tasks":
+        return _update_tasks_response(body.message, current_user, db, intent.get("task_queries") or [], intent.get("updates") or {})
+    return None
 
 
 @router.get("/quick-prompts")
@@ -366,9 +643,9 @@ async def chat(
     current_user: User = Depends(require_role(UserRole.student)),
     db: Session = Depends(get_db),
 ):
-    task_creation_response = await _handle_task_creation(body, current_user, db)
-    if task_creation_response:
-        return task_creation_response
+    action_response = await _handle_task_action(body, current_user, db)
+    if action_response:
+        return action_response
 
     context = _build_context(current_user.id, db)
     history = _get_history(current_user.id, db)
@@ -379,11 +656,8 @@ async def chat(
         {"role": "user", "content": body.message},
     ]
 
-    reply = await _call_ollama(messages)
-
-    db.add(AIMessage(user_id=current_user.id, role="user", content=body.message))
-    db.add(AIMessage(user_id=current_user.id, role="assistant", content=reply))
-    db.commit()
+    reply = _clean_ai_text(await _call_ollama(messages))
+    _store_ai_exchange(current_user.id, body.message, reply, db)
 
     action, data = _detect_action(reply, body.message)
     return ChatResponse(reply=reply, action=action, data=data)
@@ -399,7 +673,7 @@ async def analyze_load(
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": f"Проанализируй мою нагрузку и дай краткие рекомендации:\n{context}"},
     ]
-    reply = await _call_ollama(messages)
+    reply = _clean_ai_text(await _call_ollama(messages))
     return {"analysis": reply}
 
 
@@ -436,7 +710,7 @@ async def create_subtasks(
     raw = await _call_ollama(messages)
 
     try:
-        raw_clean = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+        raw_clean = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
         steps = json.loads(raw_clean)
         if not isinstance(steps, list):
             raise ValueError

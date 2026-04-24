@@ -1,6 +1,7 @@
 const API = window.location.origin;
 const TOKEN = localStorage.getItem('token');
 const HEADERS = { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+const ROLE_ROUTES = { student: '/student/dashboard', teacher: '/teacher/dashboard', parent: '/parent/dashboard', admin: '/admin/dashboard' };
 
 if (!TOKEN) window.location.href = '/login';
 
@@ -409,6 +410,10 @@ async function init() {
         }
 
         currentUser = await userRes.json();
+        if (currentUser.role !== 'student') {
+            window.location.replace(ROLE_ROUTES[currentUser.role] || '/login');
+            return;
+        }
         const tasks = tasksRes.ok ? await tasksRes.json() : [];
 
         setAvatar(currentUser);

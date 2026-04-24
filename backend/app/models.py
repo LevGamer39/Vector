@@ -47,6 +47,8 @@ class User(Base):
     role = Column(SAEnum(UserRole), nullable=False)
     avatar_url = Column(String(500), nullable=True)
     grade = Column(String(20), nullable=True)  # для ученика: "10А"
+    teacher_subject = Column(String(100), nullable=True)
+    teacher_invite_code = Column(String(16), nullable=True)
     telegram_id = Column(String(100), nullable=True, unique=True)
     is_active = Column(Boolean, default=False)  # активируется после подтверждения email
     is_verified = Column(Boolean, default=False)
@@ -96,6 +98,7 @@ class Class(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
     teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    subject = Column(String(100), nullable=True)
     invite_code = Column(String(12), unique=True, nullable=False)  # код для вступления в класс
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

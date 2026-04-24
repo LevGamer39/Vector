@@ -2,6 +2,7 @@
     const API = window.location.origin;
     const TOKEN = localStorage.getItem('token');
     const HEADERS = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+    const ROLE_ROUTES = { student: '/student/dashboard', teacher: '/teacher/dashboard', parent: '/parent/dashboard', admin: '/admin/dashboard' };
 
     if (!TOKEN) window.location.href = '/login';
 
@@ -57,6 +58,7 @@
             if (!userRes.ok) { window.location.href = '/login'; return; }
 
             const user = await userRes.json();
+            if (user.role !== 'student') { window.location.replace(ROLE_ROUTES[user.role] || '/login'); return; }
             const tasks = await taskRes.json();
 
             // Avatar initials
@@ -267,6 +269,11 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+				resizeDelay: 150,
+				devicePixelRatio: 2,
+				onResize: function(chart, size) {
+					chart.canvas.style.height = '180px';
+				},
                 animation: { duration: 700, easing: 'easeOutQuart' },
                 plugins: {
                     legend: { display: false },
@@ -282,7 +289,16 @@
                 scales: {
                     y: { min: 0, max: 100, display: false },
                     x: { display: false }
+                },
+				layout: {
+                padding: {
+                    top: 10,
+                    bottom: 10,
+                    left: 5,
+                    right: 5
                 }
+            }
+				
             }
         });
     }

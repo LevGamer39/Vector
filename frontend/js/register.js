@@ -21,16 +21,24 @@ document.getElementById('btn').addEventListener('click', async () => {
     err.style.display = 'none';
 
     if (!first || !last || !email || !password) {
-        err.textContent = 'Заполните все поля'; err.style.display = 'block'; return;
+        err.textContent = 'Заполните все поля';
+        err.style.display = 'block';
+        return;
     }
     if (password.length < 8) {
-        err.textContent = 'Пароль минимум 8 символов'; err.style.display = 'block'; return;
+        err.textContent = 'Пароль минимум 8 символов';
+        err.style.display = 'block';
+        return;
     }
     if (role === 'teacher' && !invite) {
-        err.textContent = 'Введите инвайт-код учителя'; err.style.display = 'block'; return;
+        err.textContent = 'Введите инвайт-код учителя';
+        err.style.display = 'block';
+        return;
     }
 
-    btn.disabled = true; btn.textContent = 'Регистрация...';
+    btn.disabled = true;
+    btn.textContent = 'Регистрация...';
+
     try {
         const body = { email, password, first_name: first, last_name: last, role };
         if (role === 'teacher') body.invite_code = invite;
@@ -44,10 +52,12 @@ document.getElementById('btn').addEventListener('click', async () => {
         if (!res.ok) throw data.detail || 'Ошибка регистрации';
 
         localStorage.setItem('pending_email', email);
+        localStorage.removeItem('pending_verification_code');
         window.location.href = 'verify';
     } catch (e) {
         err.textContent = typeof e === 'string' ? e : 'Ошибка регистрации';
         err.style.display = 'block';
-        btn.disabled = false; btn.textContent = 'Зарегистрироваться';
+        btn.disabled = false;
+        btn.textContent = 'Зарегистрироваться';
     }
 });

@@ -1,11 +1,20 @@
 const API = window.location.origin;
 const TOKEN = localStorage.getItem('token');
 const HEADERS = { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+const ROLE_ROUTES = {
+    student: '/student/dashboard',
+    teacher: '/teacher/dashboard',
+    parent: '/parent/dashboard',
+    admin: '/admin/dashboard',
+};
 
 if (!TOKEN) window.location.href = '/login';
 
 let currentUser = null;
-let availableClasses = [];
+
+function dashboardByRole(role) {
+    return ROLE_ROUTES[role] || '/student/dashboard';
+}
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -34,6 +43,15 @@ function getInitials(user) {
     return `${user?.first_name?.[0] || ''}${user?.last_name?.[0] || ''}`.toUpperCase() || '??';
 }
 
+function getRoleTitle(role) {
+    return {
+        student: 'Профиль ученика',
+        teacher: 'Профиль учителя',
+        parent: 'Профиль родителя',
+        admin: 'Профиль администратора',
+    }[role] || 'Профиль';
+}
+
 function updateAvatar(user) {
     const image = document.getElementById('profileAvatarImage');
     const fallback = document.getElementById('profileAvatarFallback');
@@ -58,8 +76,52 @@ function updateAvatar(user) {
     }
 }
 
-function fillGradeOptions() {
-    availableClasses = [];
+function applyRoleLayout(user) {
+    const links = [...document.querySelectorAll('.sidebar .nav-item')];
+    links.forEach((link) => {
+        const label = link.querySelector('.nav-label');
+        const href = link.getAttribute('href');
+        if (!href || href === '/settings' || href === '/student/settings' || href === '/teacher/settings' || href === '/admin/settings') return;
+
+        if (user.role === 'student') return;
+
+        if (user.role === 'teacher') {
+            if (href.startsWith('/teacher/')) return;
+            if (href === '/student/dashboard') {
+                link.href = '/teacher/dashboard';
+                if (label) label.textContent = 'Главный экран';
+            } else if (href === '/student/tasks') {
+                link.href = '/teacher/assignments';
+                if (label) label.textContent = 'Задания';
+            } else if (href === '/student/calendar') {
+                link.href = '/teacher/classes';
+                if (label) label.textContent = 'Мои классы';
+            } else {
+                link.style.display = 'none';
+            }
+        } else if (user.role === 'admin') {
+            if (href.startsWith('/admin/')) return;
+            if (href === '/student/dashboard') {
+                link.href = '/admin/dashboard';
+                if (label) label.textContent = 'Админ-панель';
+            } else {
+                link.style.display = 'none';
+            }
+        } else if (user.role === 'parent') {
+            if (href.startsWith('/parent/')) return;
+            if (href === '/student/dashboard') {
+                link.href = '/parent/dashboard';
+                if (label) label.textContent = 'Главный экран';
+            } else {
+                link.style.display = 'none';
+            }
+        }
+    });
+}
+
+function revealSettingsPage() {
+    document.body.classList.remove('settings-loading');
+    document.body.classList.add('settings-ready');
 }
 
 function fillProfile(user) {
@@ -70,25 +132,28 @@ function fillProfile(user) {
     const emailInput = document.getElementById('emailInput');
     const gradeStatus = document.getElementById('gradeStatus');
     const roleLabel = document.getElementById('settingsRoleLabel');
+    const streakCount = document.getElementById('streakCount');
+    const streakBadge = document.getElementById('settingsStreakBadge');
+    const gradeCard = document.getElementById('gradeCard');
 
     if (firstNameInput) firstNameInput.value = user.first_name || '';
     if (lastNameInput) lastNameInput.value = user.last_name || '';
     if (emailInput) emailInput.value = user.email || '';
-    if (gradeStatus) gradeStatus.textContent = user.grade || 'Не выбран';
-
-    if (roleLabel) {
-        const roles = {
-            student: 'Профиль ученика',
-            teacher: 'Профиль учителя',
-            parent: 'Профиль родителя',
-            admin: 'Профиль администратора',
-        };
-        roleLabel.textContent = roles[user.role] || 'Профиль';
+    if (roleLabel) roleLabel.textContent = getRoleTitle(user.role);
+    if (gradeStatus) {
+        gradeStatus.textContent = user.role === 'teacher'
+            ? (user.teacher_subject || 'Не назначен')
+            : (user.grade || 'Не выбран');
     }
+    if (streakCount) streakCount.textContent = user.role === 'student' ? streakCount.textContent || '0' : '0';
+    if (streakBadge) streakBadge.classList.toggle('is-hidden', user.role !== 'student');
+    if (gradeCard) gradeCard.classList.toggle('is-hidden', user.role !== 'student');
 
+    applyRoleLayout(user);
     updateAvatar(user);
     renderActionCards(user);
     renderGradeMenu();
+    revealSettingsPage();
 }
 
 function renderActionCards(user) {
@@ -98,6 +163,7 @@ function renderActionCards(user) {
     const parentTitle = document.getElementById('parentCardTitle');
     const parentStatus = document.getElementById('parentStatus');
     const parentBtn = document.getElementById('parentBtn');
+    const gradeTitle = document.querySelector('.settings-mini-icon--class')?.parentElement?.querySelector('.settings-mini-title');
     const gradeBtn = document.getElementById('gradeBtn');
 
     if (yandexStatus) yandexStatus.textContent = user.yandex_id ? 'Подключён' : 'Не подключён';
@@ -106,47 +172,51 @@ function renderActionCards(user) {
         yandexBtn.classList.toggle('is-connected', Boolean(user.yandex_id));
     }
 
-    if (!parentCard || !parentTitle || !parentStatus || !parentBtn) return;
+    if (parentCard && parentTitle && parentStatus && parentBtn) {
+        if (user.role === 'student') {
+            parentCard.style.display = 'flex';
+            parentTitle.textContent = 'Добавить родителя';
+            parentStatus.textContent = 'Сгенерировать код';
+            parentBtn.textContent = 'Добавить';
+        } else if (user.role === 'parent') {
+            parentCard.style.display = 'flex';
+            parentTitle.textContent = 'Привязать ученика';
+            parentStatus.textContent = 'Ввести код ученика';
+            parentBtn.textContent = 'Указать код';
+        } else {
+            parentCard.style.display = 'none';
+        }
+    }
 
-    if (user.role === 'student') {
-        parentCard.style.display = 'flex';
-        parentTitle.textContent = 'Добавить родителя';
-        parentStatus.textContent = 'Сгенерировать код';
-        parentBtn.textContent = 'Добавить';
-    } else if (user.role === 'parent') {
-        parentCard.style.display = 'flex';
-        parentTitle.textContent = 'Привязать ученика';
-        parentStatus.textContent = 'Ввести код ученика';
-        parentBtn.textContent = 'Указать код';
-    } else {
-        parentCard.style.display = 'none';
+    if (gradeTitle) {
+        gradeTitle.textContent = user.role === 'teacher' ? 'Предмет' : 'Класс';
     }
 
     if (gradeBtn) {
-        gradeBtn.disabled = user.role !== 'student';
-        gradeBtn.textContent = user.role === 'student' ? 'Выбрать' : 'Недоступно';
+        if (user.role === 'student') {
+            gradeBtn.disabled = false;
+            gradeBtn.textContent = 'Ввести код';
+        } else {
+            gradeBtn.disabled = true;
+            gradeBtn.textContent = 'Недоступно';
+        }
     }
 }
 
 function renderGradeMenu() {
     const menu = document.getElementById('gradeMenu');
-    if (!menu || currentUser?.role !== 'student') {
-        if (menu) menu.innerHTML = '';
+    if (!menu) return;
+
+    if (currentUser?.role !== 'student') {
+        menu.innerHTML = '';
         return;
     }
 
-    if (!availableClasses.length) {
-        menu.innerHTML = '<div class="settings-class-option">Пока нет доступных классов</div>';
-        return;
-    }
-
-    menu.innerHTML = availableClasses.map(name => `
-        <button
-            class="settings-class-option${currentUser?.grade === name ? ' is-active' : ''}"
-            type="button"
-            onclick="selectGrade('${escapeHtml(name)}')"
-        >${escapeHtml(name)}</button>
-    `).join('');
+    menu.innerHTML = `
+        <button class="settings-class-option" type="button" onclick="promptClassInvite()">
+            Ввести инвайт-код класса
+        </button>
+    `;
 }
 
 function toggleGradeMenu() {
@@ -202,7 +272,7 @@ function renderNotificationList(notifications) {
         return `
             <div class="notif-item${notification.is_read ? '' : ' notif-item--unread'}" onclick="markNotifRead(${notification.id}, this)">
                 ${notification.is_read ? '' : '<span class="notif-unread-dot"></span>'}
-                <div class="notif-author">${notification.channel === 'email' ? '📧' : '🔔'} Система</div>
+                <div class="notif-author">Система</div>
                 <div class="notif-time">${formatNotifTime(notification.created_at)}</div>
                 <div class="notif-text" title="${escapeHtml(notification.title)}">${escapeHtml(title)}</div>
             </div>
@@ -238,7 +308,7 @@ function goBack() {
         window.history.back();
         return;
     }
-    window.location.href = '/student/dashboard';
+    window.location.href = dashboardByRole(currentUser?.role);
 }
 
 function logout() {
@@ -255,7 +325,6 @@ async function saveProfile() {
         first_name: document.getElementById('firstNameInput')?.value.trim() || null,
         last_name: document.getElementById('lastNameInput')?.value.trim() || null,
     };
-    if (currentUser?.role === 'student') body.grade = currentUser?.grade || null;
 
     try {
         const res = await fetch(`${API}/api/users/me`, {
@@ -328,34 +397,28 @@ async function uploadAvatar(file) {
     }
 }
 
-async function selectGrade(gradeName) {
+async function promptClassInvite() {
+    if (currentUser?.role !== 'student') return;
     closeGradeMenu();
     clearMessage();
+
+    const inviteCode = window.prompt('Введите инвайт-код класса');
+    if (!inviteCode) return;
+
     try {
-        const res = await fetch(`${API}/api/users/me`, {
-            method: 'PATCH',
-            headers: HEADERS,
-            body: JSON.stringify({ grade: gradeName }),
+        const res = await fetch(`${API}/api/classes/join?invite_code=${encodeURIComponent(inviteCode.trim())}`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${TOKEN}` },
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Не удалось сохранить класс');
-        fillProfile(data);
-        setMessage(`Класс обновлён: ${gradeName}`);
-    } catch (error) {
-        setMessage(error.message || 'Ошибка обновления класса.', 'error');
-    }
-}
+        if (!res.ok) throw new Error(data.detail || 'Не удалось вступить в класс');
 
-async function loadAvailableClasses() {
-    try {
-        const res = await fetch(`${API}/api/classes/available`, { headers: HEADERS });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (Array.isArray(data) && data.length) {
-            availableClasses = data.map(item => item.name).filter(Boolean);
-        }
+        const profileRes = await fetch(`${API}/api/users/me`, { headers: HEADERS });
+        const profile = await profileRes.json();
+        fillProfile(profile);
+        setMessage(data.message || 'Класс подключен.');
     } catch (error) {
-        console.error(error);
+        setMessage(error.message || 'Ошибка подключения класса.', 'error');
     }
 }
 
@@ -392,27 +455,29 @@ async function handleParentAction() {
 }
 
 async function init() {
-    fillGradeOptions();
-
     try {
-        const [profileRes, tasksRes] = await Promise.all([
-            fetch(`${API}/api/users/me`, { headers: HEADERS }),
-            fetch(`${API}/api/tasks`, { headers: HEADERS }),
-        ]);
-
+        const profileRes = await fetch(`${API}/api/users/me`, { headers: HEADERS });
         if (!profileRes.ok) {
             window.location.href = '/login';
             return;
         }
 
         const profile = await profileRes.json();
-        const tasks = tasksRes.ok ? await tasksRes.json() : [];
-        await loadAvailableClasses();
+
+        if (window.location.pathname.startsWith('/student/') && profile.role !== 'student') {
+            window.location.replace(dashboardByRole(profile.role));
+            return;
+        }
+
         fillProfile(profile);
 
-        const streakCount = document.getElementById('streakCount');
-        if (streakCount) {
-            streakCount.textContent = String(tasks.filter(task => task.status === 'in_progress').length);
+        if (profile.role === 'student') {
+            const tasksRes = await fetch(`${API}/api/tasks`, { headers: HEADERS });
+            const tasks = tasksRes.ok ? await tasksRes.json() : [];
+            const streakCount = document.getElementById('streakCount');
+            if (streakCount) {
+                streakCount.textContent = String(tasks.filter(task => task.status === 'in_progress').length);
+            }
         }
 
         loadNotifications();
@@ -422,6 +487,7 @@ async function init() {
         }
     } catch (error) {
         console.error(error);
+        revealSettingsPage();
         setMessage('Не удалось загрузить настройки.', 'error');
     }
 }
@@ -458,3 +524,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gradeCard && !gradeCard.contains(event.target)) closeGradeMenu();
     });
 });
+
+window.goBack = goBack;
+window.toggleNotifications = toggleNotifications;
+window.markNotifRead = markNotifRead;
+window.promptClassInvite = promptClassInvite;

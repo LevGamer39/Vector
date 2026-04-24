@@ -19,6 +19,12 @@
     </div>
 
     <div class="layout">
+        <button class="mobile-nav-toggle" type="button" aria-label="Открыть меню" aria-expanded="false" data-mobile-nav-toggle>
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        <div class="sidebar-overlay"></div>
 
         <!-- SIDEBAR -->
         <aside class="sidebar">
@@ -52,7 +58,7 @@
                 </a>
             </nav>
             <div class="sidebar-bottom">
-                <a href="/settings" class="nav-item nav-item-settings">
+                <a href="/student/settings" class="nav-item nav-item-settings">
                     <img src="/static/student/images/settings.svg" alt="">
                     <span class="nav-label">Настройки</span>
                 </a>
@@ -131,6 +137,7 @@
         </div>
     </div>
 
+    <script src="/static/js/mobile-nav.js"></script>
     <script src="/static/student/js/tasks.js"></script>
 </body>
 </html>

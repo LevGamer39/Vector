@@ -52,6 +52,7 @@ class ProfileResponse(BaseModel):
     last_name: str
     role: UserRole
     grade: str | None
+    teacher_subject: str | None
     avatar_url: str | None
     yandex_id: str | None
     notify_email: bool
@@ -67,6 +68,7 @@ class ProfileUpdateRequest(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
     grade: str | None = None
+    teacher_subject: str | None = None
     avatar_url: str | None = None
     notify_email: bool | None = None
     notify_browser: bool | None = None
@@ -118,6 +120,26 @@ def require_role(*roles: UserRole):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
         return current_user
     return dependency
+
+
+def _normalize_profile_defaults(user: User, db: Session | None = None) -> User:
+    changed = False
+    if user.notify_email is None:
+        user.notify_email = True
+        changed = True
+    if user.notify_browser is None:
+        user.notify_browser = True
+        changed = True
+    if user.notify_telegram is None:
+        user.notify_telegram = False
+        changed = True
+    if not user.notify_digest_time:
+        user.notify_digest_time = "08:00"
+        changed = True
+    if changed and db is not None:
+        db.commit()
+        db.refresh(user)
+    return user
 
 
 
@@ -216,20 +238,22 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         role=body.role,
         is_active=False,
         is_verified=False,
+        notify_email=True,
+        notify_browser=True,
+        notify_telegram=False,
+        notify_digest_time="08:00",
+        teacher_invite_code=body.invite_code if body.role == UserRole.teacher else None,
     )
     db.add(user)
     db.flush()  # получаем user.id до commit
 
-    if body.role == UserRole.teacher:
-        invite.is_used = True
-        invite.used_by_id = user.id
-        invite.used_at = datetime.now(timezone.utc)
-
     code = _create_verification(user.id, db)
     from app.routers.notifications import send_verification_email
-    send_verification_email(user.email, code)
+    try:
+        send_verification_email(user.email, code)
+    except Exception as e:
+        raise HTTPException(503, f"Не удалось отправить письмо с кодом подтверждения: {e}")
     db.commit()
-
     return {"message": "Registration successful. Check your email for verification code."}
 
 
@@ -249,6 +273,17 @@ def verify_email(body: VerifyEmailRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == record.user_id).first()
     user.is_active = True
     user.is_verified = True
+    if user.role == UserRole.teacher and user.teacher_invite_code:
+        invite = db.query(InviteCode).filter(
+            InviteCode.code == user.teacher_invite_code,
+            InviteCode.is_used == False,
+        ).first()
+        if not invite:
+            raise HTTPException(400, "Teacher invite code is no longer available")
+        invite.is_used = True
+        invite.used_by_id = user.id
+        invite.used_at = datetime.now(timezone.utc)
+        user.teacher_invite_code = None
     db.commit()
 
     return {"message": "Email verified. You can now log in."}
@@ -261,7 +296,10 @@ def resend_verification(email: EmailStr, db: Session = Depends(get_db)):
         raise HTTPException(400, "User not found or already verified")
     code = _create_verification(user.id, db)
     from app.routers.notifications import send_verification_email
-    send_verification_email(user.email, code)
+    try:
+        send_verification_email(user.email, code)
+    except Exception as e:
+        raise HTTPException(503, f"Не удалось отправить письмо с кодом подтверждения: {e}")
     return {"message": "Code sent"}
 
 
@@ -281,8 +319,11 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
 
 
 @router.get("/me", response_model=ProfileResponse)
-def get_profile(current_user: User = Depends(get_current_user)):
-    return current_user
+def get_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return _normalize_profile_defaults(current_user, db)
 
 
 @router.patch("/me", response_model=ProfileResponse)
@@ -291,11 +332,17 @@ def update_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    for field, value in body.model_dump(exclude_none=True).items():
+    updates = body.model_dump(exclude_none=True)
+    if current_user.role != UserRole.teacher:
+        updates.pop("teacher_subject", None)
+    if current_user.role != UserRole.student:
+        updates.pop("grade", None)
+
+    for field, value in updates.items():
         setattr(current_user, field, value)
     db.commit()
     db.refresh(current_user)
-    return current_user
+    return _normalize_profile_defaults(current_user)
 
 
 @router.post("/me/change-password")

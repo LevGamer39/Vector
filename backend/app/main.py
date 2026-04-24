@@ -100,6 +100,10 @@ async def student_tasks():
 async def student_calendar():
     return serve("student/calendar.html")
 
+@app.get("/student/progress")
+async def student_progress():
+    return serve("student/progress.html")
+
 @app.get("/student/ai")
 async def student_ai():
     return serve("student/ai.html")
@@ -134,6 +138,21 @@ async def teacher_assignment_new():
 async def teacher_profile():
     return serve("teacher/profile.html")
 
+@app.get("/teacher/settings")
+async def teacher_settings():
+    return serve("teacher/settings.html")
+
+
+# Admin pages
+@app.get("/admin")
+@app.get("/admin/dashboard")
+async def admin_dashboard():
+    return serve("admin/dashboard.html")
+
+@app.get("/admin/settings")
+async def admin_settings():
+    return serve("admin/settings.html")
+
 
 # Parent pages
 @app.get("/parent/dashboard")
@@ -156,6 +175,10 @@ async def parent_profile():
 # Common
 @app.get("/settings")
 async def settings_page():
+    return serve("settings.html")
+
+@app.get("/student/settings")
+async def student_settings_page():
     return serve("settings.html")
 
 @app.get("/settings/change-email")
