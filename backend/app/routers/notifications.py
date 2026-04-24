@@ -293,7 +293,6 @@ def start_scheduler():
     scheduler.add_job(_job_send_pending_emails, "interval", minutes=1,  id="send_emails")
     scheduler.add_job(_job_check_overdue,        "interval", minutes=10, id="check_overdue")
     scheduler.start()
-    print("[SCHEDULER] Запущен ✅")
 
 
 # ─── API РОУТЫ ───────────────────────────────────────────────────────────────

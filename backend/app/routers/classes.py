@@ -71,6 +71,15 @@ def list_classes(
     return classes
 
 
+@router.get("/available")
+def list_available_class_names(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    names = sorted({item.name for item in db.query(Class).all() if item.name})
+    return [{"name": name} for name in names]
+
+
 @router.get("/{class_id}", response_model=ClassDetail)
 def get_class(
     class_id: int,

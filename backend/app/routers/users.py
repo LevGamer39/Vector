@@ -10,7 +10,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.database import get_db
-from app.models import User, UserRole, InviteCode, EmailVerification, ParentStudent, ParentLinkToken, PasswordResetToken
+from app.models import User, UserRole, InviteCode, EmailVerification, ParentStudent, ParentLinkToken, PasswordResetToken, EmailChangeToken
 from app.config import settings
 from app.dependencies import get_current_user
 
@@ -53,6 +53,7 @@ class ProfileResponse(BaseModel):
     role: UserRole
     grade: str | None
     avatar_url: str | None
+    yandex_id: str | None
     notify_email: bool
     notify_browser: bool
     notify_telegram: bool
@@ -66,6 +67,7 @@ class ProfileUpdateRequest(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
     grade: str | None = None
+    avatar_url: str | None = None
     notify_email: bool | None = None
     notify_browser: bool | None = None
     notify_digest_time: str | None = None
@@ -74,6 +76,10 @@ class ProfileUpdateRequest(BaseModel):
 class PasswordChangeRequest(BaseModel):
     current_password: str
     new_password: str
+
+
+class EmailChangeRequest(BaseModel):
+    email: EmailStr
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +128,54 @@ def _create_verification(user_id: int, db: Session) -> str:
     db.add(EmailVerification(user_id=user_id, code=code, expires_at=expires))
     db.commit()
     return code
+
+
+def _build_email_change_html(confirm_link: str, new_email: str) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Смена email — Vector</title>
+</head>
+<body style="margin:0;padding:0;background:#0f0e13;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0e13;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+          <tr>
+            <td style="background:linear-gradient(135deg,#1a1825 0%,#2d2a3e 100%);border-radius:20px 20px 0 0;padding:32px 40px 24px;border-bottom:1px solid rgba(255,255,255,0.08);">
+              <div style="display:inline-block;background:linear-gradient(135deg,#8B79FF,#6b5ce7);border-radius:12px;padding:8px 14px;color:#fff;font-size:15px;font-weight:700;">Vector</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#18171c;padding:36px 40px;border-left:1px solid rgba(255,255,255,0.05);border-right:1px solid rgba(255,255,255,0.05);">
+              <h1 style="margin:0 0 8px;color:#fff;font-size:24px;font-weight:700;letter-spacing:-0.5px;">Смена email</h1>
+              <p style="margin:0 0 28px;color:rgba(255,255,255,0.5);font-size:15px;line-height:1.6;">
+                Подтвердите новый адрес <strong style="color:rgba(255,255,255,0.86);">{new_email}</strong>. Ссылка действительна <strong style="color:rgba(255,255,255,0.8);">1 час</strong>.
+              </p>
+              <div style="text-align:center;margin-bottom:28px;">
+                <a href="{confirm_link}" style="display:inline-block;background:linear-gradient(135deg,#8B79FF,#6b5ce7);color:#fff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 32px;border-radius:12px;letter-spacing:-0.2px;">
+                  Подтвердить смену email
+                </a>
+              </div>
+              <p style="margin:0 0 8px;color:rgba(255,255,255,0.3);font-size:12px;">Или скопируйте ссылку в браузер:</p>
+              <p style="margin:0;background:rgba(255,255,255,0.05);border-radius:8px;padding:10px 14px;font-size:12px;color:rgba(255,255,255,0.4);word-break:break-all;">{confirm_link}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#13121a;border-radius:0 0 20px 20px;padding:20px 40px;border:1px solid rgba(255,255,255,0.05);border-top:none;">
+              <p style="margin:0;color:rgba(255,255,255,0.25);font-size:12px;line-height:1.5;">
+                Это автоматическое письмо от Vector. Не отвечайте на него.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
 
 
 # ---------------------------------------------------------------------------
@@ -257,6 +311,70 @@ def change_password(
     current_user.password_hash = hash_password(body.new_password)
     db.commit()
     return {"message": "Password changed"}
+
+
+@router.post("/me/change-email")
+def request_email_change(
+    body: EmailChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    new_email = body.email.strip().lower()
+    if new_email == current_user.email.lower():
+        raise HTTPException(400, "Новый email совпадает с текущим")
+
+    existing = db.query(User).filter(User.email == new_email, User.id != current_user.id).first()
+    if existing:
+        raise HTTPException(400, "Этот email уже занят")
+
+    db.query(EmailChangeToken).filter(
+        EmailChangeToken.user_id == current_user.id,
+        EmailChangeToken.is_used == False,
+    ).update({"is_used": True})
+
+    token = secrets.token_urlsafe(32)
+    expires = datetime.now(timezone.utc) + timedelta(hours=1)
+    db.add(EmailChangeToken(user_id=current_user.id, new_email=new_email, token=token, expires_at=expires))
+    db.commit()
+
+    from app.routers.notifications import send_email
+
+    confirm_link = f"{settings.app_url}/settings/change-email/confirm?token={token}"
+    send_email(
+        new_email,
+        "Подтверждение смены email — Vector",
+        _build_email_change_html(confirm_link, new_email),
+    )
+    return {"message": "Письмо с подтверждением отправлено на новую почту."}
+
+
+@router.post("/me/change-email/confirm")
+def confirm_email_change(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    record = db.query(EmailChangeToken).filter(
+        EmailChangeToken.token == token,
+        EmailChangeToken.is_used == False,
+        EmailChangeToken.expires_at > datetime.now(timezone.utc),
+    ).first()
+
+    if not record:
+        raise HTTPException(400, "Недействительная или просроченная ссылка")
+
+    user = db.query(User).filter(User.id == record.user_id).first()
+    if not user:
+        raise HTTPException(404, "Пользователь не найден")
+
+    existing = db.query(User).filter(User.email == record.new_email, User.id != user.id).first()
+    if existing:
+        raise HTTPException(400, "Этот email уже занят")
+
+    user.email = record.new_email
+    user.is_verified = True
+    record.is_used = True
+    db.commit()
+    return {"message": "Email успешно изменён", "email": user.email}
 
 
 @router.post("/me/parent-link-token")

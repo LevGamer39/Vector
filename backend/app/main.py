@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.database import create_tables
-from app.routers import users, admin, classes, assignments, tasks, grades, schedule, ai, notifications
+from app.routers import users, admin, classes, assignments, tasks, grades, schedule, ai, notifications, yandex_auth
 from app.routers.notifications import start_scheduler
 
 
@@ -54,7 +54,7 @@ app.include_router(grades.router)
 app.include_router(schedule.router)
 app.include_router(ai.router)
 app.include_router(notifications.router)
-
+app.include_router(yandex_auth.router)
 
 def serve(relative_path: str) -> FileResponse:
     return FileResponse(os.path.join(frontend_path, relative_path))
@@ -157,6 +157,18 @@ async def parent_profile():
 @app.get("/settings")
 async def settings_page():
     return serve("settings.html")
+
+@app.get("/settings/change-email")
+async def change_email_page():
+    return serve("change-email.html")
+
+@app.get("/settings/change-email/confirm")
+async def change_email_confirm_page():
+    return serve("change-email-confirm.html")
+
+@app.get("/settings/change-password")
+async def change_password_page():
+    return serve("change-password.html")
 
 @app.get("/health")
 def health():

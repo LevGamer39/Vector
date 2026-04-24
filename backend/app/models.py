@@ -51,7 +51,7 @@ class User(Base):
     is_active = Column(Boolean, default=False)  # активируется после подтверждения email
     is_verified = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
+    yandex_id = Column(String(100), unique=True, nullable=True, index=True)
     # Настройки уведомлений
     notify_email = Column(Boolean, default=True)
     notify_browser = Column(Boolean, default=True)
@@ -240,6 +240,18 @@ class PasswordResetToken(Base):
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token = Column(String(64), unique=True, nullable=False, index=True)
+    is_used = Column(Boolean, default=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class EmailChangeToken(Base):
+    __tablename__ = "email_change_tokens"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    new_email = Column(String(255), nullable=False)
     token = Column(String(64), unique=True, nullable=False, index=True)
     is_used = Column(Boolean, default=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)

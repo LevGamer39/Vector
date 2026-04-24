@@ -31,3 +31,8 @@ async function login() {
 		btn.disabled = false; btn.textContent = 'Войти';
 	}
 }
+document.getElementById('btn-yandex').onclick = async () => {
+    const res = await fetch('/api/auth/yandex/login-url');
+    const data = await res.json();
+    window.location.href = data.url;
+};

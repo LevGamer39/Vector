@@ -184,6 +184,7 @@ html, body {
 }
 
 .sidebar-nav {
+	text-decoration: none;
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -191,6 +192,7 @@ html, body {
 }
 
 .nav-item {
+	text-decoration: none;
     display: flex;
     align-items: center;
     gap: 14px;
@@ -309,6 +311,12 @@ html, body {
 
 .notif-wrap { position: relative; cursor: pointer; }
 
+.notif-wrap svg {
+    display: block;
+    width: 28px;
+    height: 28px;
+}
+
 .notif-dot {
     position: absolute;
     top: -5px;
@@ -330,6 +338,9 @@ html, body {
     height: clamp(36px, 4vw, 42px);
     border-radius: 50%;
     background: linear-gradient(135deg, #8B79FF, #4A3FCC);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     overflow: hidden;
     cursor: pointer;
     display: flex;
@@ -345,7 +356,7 @@ html, body {
     flex: 1;
     display: grid;
     grid-template-columns: 1fr 1.55fr 1.55fr;
-    grid-template-rows: 1fr 1fr;
+    grid-template-rows: minmax(0, 1.18fr) minmax(0, 0.82fr);
     gap: clamp(10px, 1.2vw, 14px);
     min-height: 0;
 }
@@ -393,6 +404,7 @@ html, body {
 .card-tasks {
     grid-column: 2;
     grid-row: 1;
+    min-height: 0;
 }
 
 .card-tasks-header {
@@ -400,6 +412,7 @@ html, body {
     align-items: center;
     justify-content: space-between;
     margin-bottom: clamp(8px, 1vw, 12px);
+    gap: 12px;
 }
 
 .card-tasks-title {
@@ -425,8 +438,9 @@ html, body {
     border-radius: 14px;
     margin-bottom: clamp(6px, 0.8vw, 8px);
     overflow: hidden;
-	min-height: clamp(60px, 8vw, 70px);
-	height: auto;
+    min-height: clamp(58px, 5.6vw, 72px);
+    height: auto;
+    flex: 0 0 auto;
 }
 
 .task-item:last-child { margin-bottom: 0; }
@@ -443,21 +457,23 @@ html, body {
 
 .task-body {
     flex: 1;
-    padding: clamp(6px, 0.8vw, 8px) clamp(10px, 1.2vw, 12px);
+    min-width: 0;
+    padding: clamp(8px, 0.75vw, 10px) clamp(11px, 1vw, 12px);
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
+    gap: 4px;
 }
 
 .task-priority {
     display: inline-flex;
     align-items: center;
-    padding: clamp(0px, 0.3vw, 1px) clamp(7px, 0.8vw, 9px);
+    padding: 1px clamp(7px, 0.7vw, 8px);
     border-radius: 20px;
-    font-size: clamp(9px, 0.75vw, 12px);
+    font-size: clamp(8px, 0.68vw, 11px);
     font-weight: 700;
     color: #000000;
-    margin-bottom: clamp(3px, 0.4vw, 4px);
+    margin-bottom: 2px;
     width: fit-content;
 }
 
@@ -466,23 +482,33 @@ html, body {
 .task-priority.green { background: #04C610; }
 
 .task-name {
-    font-size: clamp(12px, 1.1vw, 17px);
+    font-size: clamp(11px, 0.96vw, 15px);
     font-weight: 600;
     color: #fff;
-    line-height: 1.2;
+    line-height: 1.18;
     letter-spacing: -0.02em;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal;
+    word-break: break-word;
 }
 
 .task-time {
     display: flex;
     align-items: center;
     gap: clamp(3px, 0.5vw, 5px);
-    font-size: clamp(10px, 0.85vw, 13px);
+    font-size: clamp(9px, 0.76vw, 12px);
     color: rgba(255,255,255,0.65);
-    margin-top: clamp(2px, 0.3vw, 3px);
+    margin-top: 0;
+    min-width: 0;
+    flex-shrink: 0;
 }
 
-.task-time svg { width: 13px; height: 13px; color: rgba(255,255,255,0.65); }
+.task-time svg { width: 12px; height: 12px; color: rgba(255,255,255,0.65); }
 
 /* Progress card */
 .card-progress {
@@ -562,7 +588,7 @@ html, body {
     gap: clamp(12px, 2vw, 20px);
     align-items: stretch;
     justify-content: space-between;
-    padding: clamp(14px, 1.5vw, 18px) clamp(16px, 1.8vw, 22px);
+    padding: clamp(12px, 1.2vw, 16px) clamp(16px, 1.6vw, 20px);
 }
 
 .perf-chart-area {
@@ -577,7 +603,7 @@ html, body {
     font-size: clamp(13px, 1.3vw, 20px);
     font-weight: 700;
     color: #fff;
-    margin-bottom: clamp(6px, 0.8vw, 8px);
+    margin-bottom: clamp(4px, 0.6vw, 6px);
     letter-spacing: -0.05em;
 }
 
@@ -593,7 +619,7 @@ html, body {
     flex-direction: column;
     justify-content: space-between;
     align-items: flex-end;
-    padding-bottom: clamp(12px, 1.5vw, 20px);
+    padding-bottom: clamp(8px, 1vw, 12px);
 }
 
 .perf-y-label {
@@ -622,8 +648,8 @@ html, body {
 .perf-x-axis {
     display: flex;
     justify-content: space-between;
-    padding: clamp(2px, 0.4vw, 4px) 0 0 0;
-    height: clamp(16px, 1.8vw, 20px);
+    padding: 2px 0 0 0;
+    height: clamp(14px, 1.5vw, 18px);
 }
 
 .perf-x-label {
@@ -825,8 +851,20 @@ html, body {
 
 /* Task name overflow */
 .task-name {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     max-width: 100%;
+}
+
+.sidebar-nav a,
+.sidebar-bottom a {
+    text-decoration: none !important;
+    color: inherit;
+}
+
+.nav-item,
+.nav-item:visited,
+.nav-item:hover,
+.nav-item:active {
+    text-decoration: none !important;
+    color: inherit;
+	
 }

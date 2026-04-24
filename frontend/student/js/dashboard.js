@@ -36,6 +36,15 @@
         if (el) el.textContent = v;
     }
 
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     // ─── INIT ─────────────────────────────────────────────────────────────────
 
     async function init() {
@@ -53,7 +62,11 @@
             // Avatar initials
             const initials = (user.first_name?.[0] || '') + (user.last_name?.[0] || '');
             const avatarEl = document.querySelector('.avatar');
-            if (avatarEl) avatarEl.textContent = initials.toUpperCase();
+            if (avatarEl) {
+                avatarEl.textContent = initials.toUpperCase();
+                avatarEl.style.backgroundImage = user.avatar_url ? `url("${user.avatar_url}")` : '';
+                avatarEl.style.color = user.avatar_url ? 'transparent' : '#fff';
+            }
             set('userName', `${user.first_name} ${user.last_name}!`);
 
             // Local date comparison — avoids UTC vs local mismatch
@@ -142,6 +155,8 @@
         set('progressLabel', `Прогресс сегодня: ${p}%`);
         set('progressSublabel', `Выполнено ${d} из ${t}`);
         set('dynamicPercent', p + '%');
+        const dynamicLabel = document.getElementById('dynamicLabel');
+        if (dynamicLabel) dynamicLabel.innerHTML = 'Продуктивность<br>за сегодня';
         set('dynamicSublabel', `${d} из ${t} выполнено`);
     }
 
@@ -163,17 +178,17 @@
                 ? new Date(t.deadline).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
                 : (t.subject || 'Общее');
             html += `
-                <div class="task-item" onclick="completeTask(${t.id})" style="cursor:pointer" title="${t.title}">
+                <div class="task-item" onclick="completeTask(${t.id})" style="cursor:pointer" title="${escapeHtml(t.title)}">
                     <div class="task-stripe ${color}"></div>
                     <div class="task-body">
                         <span class="task-priority ${color}">${label}</span>
-                        <div class="task-name">${t.title}</div>
+                        <div class="task-name">${escapeHtml(t.title)}</div>
                         <div class="task-time">
                             <svg viewBox="0 0 24 24" fill="none" style="width:13px;flex-shrink:0">
                                 <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
                                 <path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                             </svg>
-                            ${deadlineText}
+                            ${escapeHtml(deadlineText)}
                         </div>
                     </div>
                 </div>`;
@@ -231,10 +246,6 @@
         const pointRadii = renderValues.map((_, i) => i === todayIdx ? 7 : (rawValues[i] !== null ? 4 : 2));
         const pointColors = renderValues.map((_, i) => i === todayIdx ? '#8B79FF' : (rawValues[i] !== null ? '#ffffff' : 'rgba(255,255,255,0.2)'));
 
-        // Update right-side stats with today value
-        const todayPct = rawValues[todayIdx] ?? 0;
-        set('dynamicPercent', todayPct + '%');
-
         if (myChart) myChart.destroy();
         myChart = new Chart(canvas.getContext('2d'), {
             type: 'line',
@@ -282,11 +293,14 @@
     async function updateAISummary(tasks, name) {
         const el = document.getElementById('aiSummary');
         if (!el) return;
-
+		if (!tasks || tasks.length === 0) {
+			el.innerHTML = `Привет, <b>${name}</b>!<br>На сегодня задач нет. Ты всё выполнил, отличная работа! Отдыхай или добавь новые цели.`;
+			return;
+		}
+		el.innerHTML = "Составляю план...";
         try {
             // Собираем не только заголовки, но и предметы, чтобы ИИ понимал контекст
             const taskDetails = tasks.map(t => `- ${t.title} (Предмет: ${t.subject || 'Общее'})`).join('\n');
-
             const res = await fetch(`${API}/api/ai/chat`, {
                 method: 'POST',
                 headers: HEADERS,
@@ -309,8 +323,7 @@
             });
 
             const data = await res.json();
-
-            // Важно: так как мы просим HTML оформление, используем innerHTML вместо textContent
+			
             const aiText = data.response || data.reply || data.text || "План готов, приступай!";
             el.innerHTML = aiText.replace(/\n/g, '<br>');
 
@@ -403,4 +416,14 @@
 
         const modal = document.getElementById('notifModal');
         if (modal) modal.addEventListener('click', e => e.stopPropagation());
+    });
+	
+	const currentPath = window.location.pathname;
+
+    document.querySelectorAll('.nav-item').forEach(link => {
+        const href = link.getAttribute('href');
+
+        if (href === currentPath) {
+            link.classList.add('active');
+        }
     });

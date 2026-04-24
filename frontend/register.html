@@ -45,6 +45,8 @@
             <p class="login-link">У вас уже есть аккаунт? <a href="login">Войдите в систему</a></p>
         </div>
     </div>
+    <script src="/static/js/auth-guard.js"></script>
+    <script>window.AuthGuard?.redirectIfAuthenticated();</script>
     <script src="/static/js/register.js"></script>
 </body>
 </html>
