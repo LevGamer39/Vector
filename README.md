@@ -109,16 +109,12 @@ project/
 │   │   ├── calendar.html        # Календарь дедлайнов
 │   │   ├── ai.html              # ИИ-ассистент
 │   │   └── profile.html         # Профиль
-│   ├── teacher/
-│   │   ├── dashboard.html
-│   │   ├── classes.html
-│   │   ├── class.html           # Страница класса /classes/:id
-│   │   ├── assignments.html
-│   │   └── assignment-new.html
-│   └── parent/
+│   └── teacher/
 │       ├── dashboard.html
-│       ├── child.html           # Страница ребёнка /child/:id
-│       └── notifications.html
+│       ├── classes.html
+│       ├── class.html           # Страница класса /classes/:id
+│       ├── assignments.html
+│       └── assignment-new.html
 │
 ├── .env                         # Переменные окружения (не в git)
 ├── .env.example                 # Шаблон
@@ -135,6 +131,163 @@ project/
 | **Учитель** | Создание заданий, управление классами, просмотр прогресса учеников, оценки |
 | **Родитель** | Просмотр задач и оценок ребёнка (только чтение), уведомления |
 | **Администратор** | Генерация инвайт-кодов для учителей |
+
+---
+
+## Деплой в Яндекс.Облаке
+
+### Инфраструктура
+
+```
+Яндекс.Облако
+    │
+    ├── Yandex Compute Cloud (VM)
+    │       ОС: Ubuntu 22.04 LTS
+    │       vCPU: 4+  RAM: 8+ GB  (Qwen2.5:7b требует ~6 GB RAM)
+    │       Диск: 40+ GB (модель весит ~5 GB)
+    │
+    ├── Yandex DNS
+    │       A-запись: yourdomain.ru → IP виртуальной машины
+    │
+    └── Внешний IP (статический, привязан к VM)
+```
+
+### Docker Compose (все сервисы)
+
+```yaml
+# docker-compose.yml
+version: "3.9"
+
+networks:
+  vector_net:
+    driver: bridge
+
+services:
+
+  backend:
+    build: ./backend
+    container_name: vector_backend
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./backend/data:/app/data
+    networks:
+      - vector_net
+    depends_on:
+      - ollama
+
+  nginx:
+    image: nginx:alpine
+    container_name: vector_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    networks:
+      - vector_net
+    depends_on:
+      - backend
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: vector_ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - vector_net
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: vector_certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: >
+      /bin/sh -c "trap exit TERM;
+      while :; do
+        certbot renew --webroot -w /var/www/certbot --quiet;
+        sleep 12h;
+      done"
+
+volumes:
+  ollama_data:
+```
+
+### nginx.conf
+
+```nginx
+# nginx/nginx.conf
+events {}
+
+http {
+    include mime.types;
+
+    server {
+        listen 80;
+        server_name yourdomain.ru;  # заменить на свой домен
+
+        location /.well-known/acme-challenge/ {
+            root /var/www/certbot;
+        }
+
+        location / {
+            return 301 https://$host$request_uri;
+        }
+    }
+
+    server {
+        listen 443 ssl;
+        server_name yourdomain.ru;  # заменить на свой домен
+
+        ssl_certificate /etc/letsencrypt/live/yourdomain.ru/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/yourdomain.ru/privkey.pem;
+
+        root /usr/share/nginx/html;
+        index index.html;
+
+        location /api/ {
+            proxy_pass http://backend:8000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+    }
+}
+```
+
+### Первичный запуск на сервере
+
+```bash
+# 1. Установить Docker
+curl -fsSL https://get.docker.com | sh
+
+# 2. Клонировать репозиторий
+git clone https://github.com/your/vector.git
+cd vector
+cp .env.example .env
+# Отредактировать .env
+
+# 3. Получить SSL-сертификат (первый раз — без certbot-контейнера)
+docker run --rm -v ./certbot/conf:/etc/letsencrypt -v ./certbot/www:/var/www/certbot \
+  -p 80:80 certbot/certbot certonly --standalone \
+  -d yourdomain.ru --email your@email.ru --agree-tos --no-eff-email
+
+# 4. Скачать модель
+docker compose up -d ollama
+docker exec vector_ollama ollama pull qwen2.5:7b
+
+# 5. Запустить всё
+docker compose up -d
+```
 
 ---
 

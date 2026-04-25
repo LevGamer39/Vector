@@ -63,11 +63,11 @@ def _ensure_admin_user() -> None:
         if admin:
             changed = False
             if not admin.is_active:
-                admin.is_active = True
-                changed = True
+                admin.is_active = False
+                changed = False
             if not admin.is_verified:
-                admin.is_verified = True
-                changed = True
+                admin.is_verified = False
+                changed = False
             if changed:
                 db.commit()
             return
@@ -79,10 +79,10 @@ def _ensure_admin_user() -> None:
                 first_name=settings.admin_first_name,
                 last_name=settings.admin_last_name,
                 role=UserRole.admin,
-                is_active=True,
-                is_verified=True,
-                notify_email=True,
-                notify_browser=True,
+                is_active=False,
+                is_verified=False,
+                notify_email=False,
+                notify_browser=False,
                 notify_telegram=False,
                 notify_digest_time="08:00",
             )
